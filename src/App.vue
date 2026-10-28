@@ -266,6 +266,9 @@
         </header>
         <div v-if="detailItem.images.length" class="carousel">
           <img :src="detailImages[detailCarouselIndex]" alt="" />
+          <button v-if="detailImages.length > 1" class="carousel-delete" type="button" @click="deleteDetailImage">
+            <Trash2 />
+          </button>
           <button v-if="detailImages.length > 1" class="carousel-nav left" type="button" @click="previousImage"><ChevronLeft /></button>
           <button v-if="detailImages.length > 1" class="carousel-nav right" type="button" @click="nextImage"><ChevronRight /></button>
           <span class="carousel-count">{{ detailImageIndex + 1 }}/{{ detailImages.length }}</span>
@@ -408,6 +411,7 @@ import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
 import { exportBackup, importBackup } from './backup'
 import { db } from './db'
+import { blobUrl, normalizeImages } from './images'
 import { CATEGORIES, MATERIALS, SCENES, SEASONS, STATUSES, categoryLabel, formatDate, seasonText, statusLabel } from './config'
 
 const appVersion = __APP_VERSION__
@@ -510,20 +514,29 @@ const monthUnusedCount = computed(() => activeClothes.value.length - monthActive
 
 const detailImages = computed(() => {
   if (!detailItem.value) return []
-  return detailItem.value.images.map((blob) => URL.createObjectURL(blob))
+  return detailItem.value.images.map((blob) => blobUrl(blob))
 })
 
 async function refresh() {
+  await repairImageRecords()
   const records = await db.clothes.orderBy('createdAt').reverse().toArray()
   clothes.value = records.map((item) => ({
     ...item,
     images: item.images || (item.image ? [item.image] : []),
     tags: item.tags || [],
     seasons: item.seasons || [],
-    imageUrl: item.image ? URL.createObjectURL(item.image) : ''
-  })).map((item) => ({ ...item, coverImage: item.images[0] ? URL.createObjectURL(item.images[0]) : item.imageUrl }))
+    imageUrl: blobUrl(item.image)
+  })).map((item) => ({ ...item, coverImage: blobUrl(item.images[0] || item.image) }))
   outfits.value = await db.outfits.orderBy('createdAt').reverse().toArray()
   wearLogs.value = await db.wearLogs.orderBy('date').reverse().toArray()
+}
+
+async function repairImageRecords() {
+  const records = await db.clothes.toArray()
+  await Promise.all(records.map(async (record) => {
+    const normalized = await normalizeImages(record)
+    if (normalized.changed) await db.clothes.update(record.id, { image: normalized.image, images: normalized.images })
+  }))
 }
 
 function handlePrimaryAction() {
@@ -715,6 +728,11 @@ const detailCarouselIndex = computed(() => Math.min(detailImageIndex.value, Math
 
 function previousImage() { detailImageIndex.value = (detailCarouselIndex.value + detailImages.value.length - 1) % detailImages.value.length }
 function nextImage() { detailImageIndex.value = (detailCarouselIndex.value + 1) % detailImages.value.length }
+
+function deleteDetailImage() {
+  detailItem.value.images.splice(detailCarouselIndex.value, 1)
+  detailImageIndex.value = Math.max(0, detailCarouselIndex.value - 1)
+}
 
 async function addDetailImages(event) {
   const files = Array.from(event.target.files || [])

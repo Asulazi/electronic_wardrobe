@@ -25,7 +25,7 @@
         <div class="insight">
           <span>回本王</span>
           <div v-if="topWorn" class="insight-item" @click="$emit('open-item', topWorn)">
-            <img v-if="topWorn.image" :src="topWorn.imageUrl" alt="" />
+            <img v-if="topWorn.coverImage" :src="topWorn.coverImage" alt="" />
             <Shirt v-else />
             <strong>{{ topWorn.name }}</strong>
             <small>{{ topWorn.wearCount || 0 }} 次</small>

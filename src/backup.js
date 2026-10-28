@@ -1,4 +1,5 @@
 import { db } from './db'
+import { imageToBlob, isImageBlob } from './images'
 
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
@@ -32,7 +33,8 @@ export async function exportBackup() {
     data: {
       clothes: await Promise.all(clothes.map(async (item) => ({
         ...item,
-        image: item.image ? await blobToDataUrl(item.image) : null
+        image: item.image ? await blobToDataUrl(item.image) : null,
+        images: await Promise.all((item.images || []).map(async (image) => isImageBlob(image) ? await blobToDataUrl(image) : null))
       }))),
       outfits,
       wearLogs
@@ -59,10 +61,8 @@ export async function importBackup(file) {
       return {
         id,
         ...rest,
-        image: item.image ? await (async () => {
-          const response = await fetch(item.image)
-          return response.blob()
-        })() : null
+        image: await imageToBlob(item.image),
+        images: (await Promise.all((item.images || []).map((image) => imageToBlob(image)))).filter(Boolean)
       }
     }))
     await db.clothes.bulkPut(clothes)

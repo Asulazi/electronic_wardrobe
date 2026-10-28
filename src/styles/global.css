@@ -556,6 +556,8 @@ button { touch-action: manipulation; }
 .carousel-nav.right { right: 8px; }
 .carousel-nav svg { width: 17px; height: 17px; }
 .carousel-count { position: absolute; right: 9px; bottom: 8px; padding: 3px 7px; border-radius: 999px; background: rgba(20,17,12,.68); color: #fff; font-size: 11px; }
+.carousel-delete { position: absolute; left: 8px; top: 8px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.9); color: var(--danger); }
+.carousel-delete svg { width: 16px; height: 16px; }
 .add-photo { display: grid; place-items: center; min-height: 44px; margin-bottom: 12px; border: 1px dashed var(--line); border-radius: 10px; color: var(--ink-2); font-size: 13px; overflow: hidden; }
 .add-photo input { display: none; }
 .add-photo span { display: inline-flex; align-items: center; gap: 6px; }

@@ -56,14 +56,14 @@ function dateKey(day) {
 function entriesFor(day) {
   const key = dateKey(day)
   return props.logs.filter((log) => log.date === key).map((log) => {
-    if (log.itemId) return props.clothesById[log.itemId]?.imageUrl
+    if (log.itemId) return props.clothesById[log.itemId]?.coverImage
     const outfit = props.outfitsById[log.outfitId]
     return outfit ? clothesImage(outfit.itemIds[0]) : ''
   }).filter(Boolean)
 }
 
 function clothesImage(itemId) {
-  return props.clothesById[itemId]?.imageUrl
+  return props.clothesById[itemId]?.coverImage
 }
 
 function isToday(day) {
