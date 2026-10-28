@@ -2,7 +2,10 @@
   <div class="phone">
     <header class="topbar">
       <div class="topbar-copy">
-        <h1>{{ activeTab === 'wardrobe' ? '我的衣橱' : '搭配灵感' }}</h1>
+        <div class="title-row">
+          <h1>{{ activeTab === 'wardrobe' ? '我的衣橱' : '搭配灵感' }}</h1>
+          <span class="version">v{{ appVersion }}</span>
+        </div>
         <p>{{ activeTab === 'wardrobe' ? `${clothes.length} 件单品` : `${outfits.length} 套搭配` }}</p>
       </div>
       <button class="icon-action" type="button" @click="activeTab === 'wardrobe' ? openImport() : startOutfit()">
@@ -89,6 +92,7 @@
           <button class="primary-action" type="button" :disabled="saving || !stagedItems.length" @click="saveItems">
             {{ saving ? '正在保存' : `入库 ${stagedItems.length} 件` }}
           </button>
+          <p v-if="saveError" class="error-text">{{ saveError }}</p>
         </section>
 
         <section v-else-if="!filteredClothes.length" class="empty">
@@ -113,7 +117,21 @@
       </section>
 
       <section v-if="activeTab === 'outfits'" class="view">
-        <section v-if="outfitDraft" class="panel">
+        <section v-if="outfitDraft && !clothes.length" class="panel">
+          <header class="panel-header">
+            <div>
+              <span class="kicker">创建搭配</span>
+              <h2>先添加单品</h2>
+            </div>
+            <button class="icon-action subtle" type="button" @click="outfitDraft = null">
+              <X />
+            </button>
+          </header>
+          <p class="guide-text">搭配需要从衣橱里选择单品。当前衣橱是空的，先添加衣服、鞋帽或配饰。</p>
+          <button class="primary-action" type="button" @click="goAddClothes">去衣橱添加</button>
+        </section>
+
+        <section v-else-if="outfitDraft" class="panel">
           <header class="panel-header">
             <div>
               <span class="kicker">新建</span>
@@ -150,6 +168,14 @@
             </button>
           </div>
           <button class="primary-action" type="button" :disabled="!outfitDraft.itemIds.length || saving" @click="saveOutfit">保存搭配</button>
+          <p v-if="saveError" class="error-text">{{ saveError }}</p>
+        </section>
+
+        <section v-else-if="!outfits.length && !clothes.length" class="empty">
+          <Shirt />
+          <h2>先从衣橱开始</h2>
+          <p>创建搭配前，先添加几件衣服、鞋帽或配饰，然后就能在这里自由组合。</p>
+          <button class="primary-action" type="button" @click="goAddClothes">添加单品</button>
         </section>
 
         <section v-else-if="!outfits.length" class="empty">
@@ -189,7 +215,7 @@
         <Shirt />
         <span>衣橱</span>
       </button>
-      <button class="center-add" type="button" @click="activeTab === 'wardrobe' ? openImport() : startOutfit()">
+      <button class="center-add" type="button" @click="handleCenterAdd">
         <Plus />
       </button>
       <button type="button" :class="{ active: activeTab === 'outfits' }" @click="activeTab = 'outfits'">
@@ -201,7 +227,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import { Layers, Plus, ScanLine, Shirt, Sparkles, Trash2, X } from 'lucide-vue-next'
 import { db } from './db'
@@ -218,6 +244,8 @@ const categoryFilter = ref('all')
 const seasonFilter = ref('all')
 const fileInput = ref(null)
 const outfitDraft = ref(null)
+const appVersion = __APP_VERSION__
+const saveError = ref('')
 
 const clothesById = computed(() => Object.fromEntries(clothes.value.map((item) => [item.id, item])))
 const filteredClothes = computed(() => clothes.value.filter((item) => {
@@ -243,7 +271,23 @@ function clearImport() {
   stagedItems.value.forEach((item) => URL.revokeObjectURL(item.workUrl))
   stagedItems.value = []
   batchStatus.value = ''
+  saveError.value = ''
   if (fileInput.value) fileInput.value.value = ''
+}
+
+function handleCenterAdd() {
+  if (activeTab.value === 'wardrobe' || !clothes.value.length) {
+    activeTab.value = 'wardrobe'
+    openImport()
+    return
+  }
+  startOutfit()
+}
+
+function goAddClothes() {
+  outfitDraft.value = null
+  activeTab.value = 'wardrobe'
+  openImport()
 }
 
 async function handleFiles(event) {
@@ -327,24 +371,32 @@ function toggleSeason(item, value) {
 
 async function saveItems() {
   saving.value = true
+  saveError.value = ''
   try {
     const now = Date.now()
-    await db.clothes.bulkAdd(stagedItems.value.map((item) => ({
-      name: item.name || categoryLabel(item.category),
-      category: item.category,
-      seasons: item.seasons,
-      color: '',
-      note: item.note,
-      image: item.image || item.original,
-      originalName: item.originalName,
-      width: item.width,
-      height: item.height,
-      processed: item.processed,
-      createdAt: now,
-      updatedAt: now
-    })))
+    const records = stagedItems.value.map((reactiveItem) => {
+      const item = toRaw(reactiveItem)
+      return {
+        name: item.name || categoryLabel(item.category),
+        category: item.category,
+        seasons: [...item.seasons],
+        color: '',
+        note: item.note || '',
+        image: item.image || item.original,
+        originalName: item.originalName || '',
+        width: Number(item.width) || 0,
+        height: Number(item.height) || 0,
+        processed: Boolean(item.processed),
+        createdAt: now,
+        updatedAt: now
+      }
+    })
+    await db.clothes.bulkAdd(records)
     clearImport()
     await refresh()
+  } catch (error) {
+    console.error(error)
+    saveError.value = '入库失败：本地数据库写入未完成，请重试一次。'
   } finally {
     saving.value = false
   }
@@ -370,18 +422,23 @@ function toggleOutfitItem(itemId) {
 
 async function saveOutfit() {
   saving.value = true
+  saveError.value = ''
   try {
     const now = Date.now()
+    const draft = toRaw(outfitDraft.value)
     await db.outfits.add({
-      name: outfitDraft.value.name || '未命名搭配',
-      seasons: outfitDraft.value.seasons,
-      itemIds: outfitDraft.value.itemIds,
+      name: draft.name || '未命名搭配',
+      seasons: [...draft.seasons],
+      itemIds: [...draft.itemIds],
       note: '',
       createdAt: now,
       updatedAt: now
     })
     outfitDraft.value = null
     await refresh()
+  } catch (error) {
+    console.error(error)
+    saveError.value = '保存失败：本地数据库写入未完成，请重试一次。'
   } finally {
     saving.value = false
   }

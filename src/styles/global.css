@@ -85,6 +85,21 @@ button {
   font-size: 13px;
 }
 
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.version {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
 .icon-action {
   display: grid;
   width: 38px;
@@ -326,6 +341,19 @@ button {
 
 .primary-action:disabled {
   opacity: .45;
+}
+
+.guide-text {
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.error-text {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  text-align: center;
 }
 
 .empty {
