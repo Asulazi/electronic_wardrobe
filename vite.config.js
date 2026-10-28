@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/electronic_wardrobe/',
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version)
+  },
   plugins: [
     vue(),
     VitePWA({
@@ -15,7 +18,18 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/electronic_wardrobe/index.html',
         clientsClaim: true,
-        skipWaiting: true
+        skipWaiting: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/staticimgly\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'background-removal-model',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
       },
       manifest: {
         name: 'electronic_wardrobe',
