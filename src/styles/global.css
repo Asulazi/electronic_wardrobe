@@ -1,0 +1,148 @@
+:root {
+  color-scheme: light;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --background: #f7f5f1;
+  --surface: #ffffff;
+  --ink: #211d19;
+  --muted: #776f66;
+  --line: #e6ded4;
+  --accent: #846c53;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  height: 100%;
+  min-width: 320px;
+  margin: 0;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  background: var(--background);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+}
+
+#app {
+  min-height: 100dvh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: calc(var(--safe-top) + 24px) 20px calc(var(--safe-bottom) + 24px);
+}
+
+.app-header {
+  padding-bottom: 22px;
+}
+
+.app-eyebrow {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 750;
+}
+
+.app-subtitle {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.status-card {
+  display: flex;
+  min-height: 92px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(60, 48, 35, 0.04);
+}
+
+.status-label {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.status-value {
+  color: var(--ink);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.placeholder-card {
+  flex: 1;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.placeholder-card h2 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.placeholder-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.app-footer {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@supports (height: 100svh) {
+  #app,
+  .app {
+    min-height: 100svh;
+  }
+}
