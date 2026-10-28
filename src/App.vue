@@ -273,6 +273,17 @@
           <button v-if="detailImages.length > 1" class="carousel-nav right" type="button" @click="nextImage"><ChevronRight /></button>
           <span class="carousel-count">{{ detailImageIndex + 1 }}/{{ detailImages.length }}</span>
         </div>
+        <div v-if="detailImages.length > 1" class="thumbnail-strip">
+          <button
+            v-for="(imageUrl, index) in detailImages"
+            :key="index"
+            type="button"
+            :class="{ active: index === detailCarouselIndex }"
+            @click="detailImageIndex = index"
+          >
+            <img :src="imageUrl" alt="" />
+          </button>
+        </div>
         <label class="add-photo">
           <input type="file" accept="image/*" multiple @change="addDetailImages" />
           <span><ImagePlus />添加正面 / 背面 / 细节图</span>
