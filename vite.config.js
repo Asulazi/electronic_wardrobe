@@ -4,9 +4,6 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/electronic_wardrobe/',
-  define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version)
-  },
   plugins: [
     vue(),
     VitePWA({
