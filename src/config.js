@@ -9,6 +9,18 @@ export const CATEGORIES = [
   { value: 'other', label: '其他', color: '#8b8177' }
 ]
 
+export const STATUSES = [
+  { value: 'normal', label: '正常穿着' },
+  { value: 'wash', label: '待清洗' },
+  { value: 'repair', label: '待修补' },
+  { value: 'sell', label: '准备闲置' },
+  { value: 'archived', label: '已归档' }
+]
+
+export const SCENES = ['通勤', '休闲', '度假', '约会', '运动', '正式']
+
+export const MATERIALS = ['棉', '羊毛', '牛仔', '麻', '丝绸', '聚酯纤维', '皮革', '针织', '其他']
+
 export const SEASONS = [
   { value: 'spring', label: '春' },
   { value: 'summer', label: '夏' },
@@ -30,4 +42,13 @@ export function seasonText(values) {
     .map((value) => SEASONS.find((season) => season.value === value)?.label)
     .filter(Boolean)
     .join(' · ')
+}
+
+export function statusLabel(value) {
+  return STATUSES.find((status) => status.value === value)?.label || '正常穿着'
+}
+
+export function formatDate(value) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('zh-CN')
 }
