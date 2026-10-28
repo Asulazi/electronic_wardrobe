@@ -49,12 +49,20 @@
       <section v-if="stagedItems.length" class="import-panel">
         <div class="panel-heading">
           <h2>准备入库 · {{ stagedItems.length }}</h2>
-          <button class="ghost-button" type="button" @click="clearImport">清空</button>
+          <div class="heading-actions">
+            <button
+              class="ghost-button"
+              type="button"
+              :disabled="Boolean(processingId) || saving"
+              @click="batchCutout"
+            >{{ batchStatus || '批量抠图' }}</button>
+            <button class="ghost-button" type="button" @click="clearImport">清空</button>
+          </div>
         </div>
         <div v-for="item in stagedItems" :key="item.key" class="staged-item">
           <div class="check-stage">
             <img :src="item.workUrl" alt="待入库衣服" />
-            <div class="stage-badge">{{ item.processed ? '抠图完成' : processingId === item.key ? '识别中' : '原图' }}</div>
+            <div class="stage-badge">{{ item.error ? '抠图失败' : item.processed ? '抠图完成' : processingId === item.key ? '识别中' : '原图' }}</div>
           </div>
           <div class="staged-fields">
             <input v-model.trim="item.name" class="text-input" type="text" placeholder="名称" />
@@ -72,12 +80,14 @@
               >{{ season.label }}</button>
             </div>
             <button class="secondary-button" type="button" :disabled="processingId === item.key" @click="processCutout(item)">
-              {{ item.processed ? '重新抠图' : '自动抠图' }}
+              {{ item.error ? '重试抠图' : item.processed ? '重新抠图' : '自动抠图' }}
             </button>
-            <p class="processing-tip">{{ item.processed ? '已按识别结果处理，请确认后再保存。' : '可先用原图入库，后续再加手动微调。' }}</p>
+            <p class="processing-tip">{{ item.error ? '这一张失败了，已保留原图；可重试后继续批量入库。' : item.processed ? '已按识别结果处理，请确认后再保存。' : '可先用原图入库，后续再加手动微调。' }}</p>
           </div>
         </div>
-        <button class="primary-button" type="button" :disabled="saving || !stagedItems.length" @click="saveItems">全部保存</button>
+        <button class="primary-button" type="button" :disabled="saving || !stagedItems.length" @click="saveItems">
+          {{ saving ? '正在入库' : `批量入库 · ${stagedItems.length}` }}
+        </button>
       </section>
 
       <section class="grid-area">
@@ -177,6 +187,7 @@ const clothes = ref([])
 const outfits = ref([])
 const stagedItems = ref([])
 const processingId = ref('')
+const batchStatus = ref('')
 const saving = ref(false)
 const categoryFilter = ref('all')
 const seasonFilter = ref('all')
@@ -233,8 +244,9 @@ async function handleFiles(event) {
   if (fileInput.value) fileInput.value.value = ''
 }
 
-async function processCutout(item) {
+async function runCutout(item) {
   processingId.value = item.key
+  item.error = false
   try {
     const blob = await removeBackground(item.original, {
       device: 'cpu',
@@ -247,12 +259,38 @@ async function processCutout(item) {
     const bitmap = await createImageBitmap(blob)
     item.width = bitmap.width
     item.height = bitmap.height
+    return true
   } catch (error) {
     console.error(error)
-    alert('自动抠图失败，可先保存原图。')
+    item.error = true
+    return false
   } finally {
     processingId.value = ''
   }
+}
+
+async function processCutout(item) {
+  const success = await runCutout(item)
+  if (!success) {
+    alert('自动抠图失败，可先保存原图。')
+  }
+}
+
+async function batchCutout() {
+  const queue = stagedItems.value.filter((item) => !item.processed)
+  if (!queue.length) return
+  let completed = 0
+  let failed = 0
+  for (const [index, item] of queue.entries()) {
+    batchStatus.value = `抠图中 ${index + 1}/${queue.length}`
+    const success = await runCutout(item)
+    if (success) completed += 1
+    else failed += 1
+  }
+  batchStatus.value = failed ? `完成 ${completed} · 失败 ${failed}` : `完成 ${completed}`
+  setTimeout(() => {
+    batchStatus.value = ''
+  }, 2400)
 }
 
 function toggleSeason(item, value) {
