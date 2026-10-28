@@ -26,3 +26,21 @@ db.version(2).stores({
     outfit.note = outfit.note || ''
   })
 })
+
+db.version(3).stores({
+  clothes: '++id, name, category, favorite, createdAt, updatedAt',
+  outfits: '++id, name, favorite, createdAt, updatedAt',
+  wearLogs: '++id, date, itemId, outfitId',
+  settings: 'key'
+}).upgrade(async (tx) => {
+  await tx.clothes.toCollection().modify((item) => {
+    item.favorite = item.favorite || false
+    item.brand = item.brand || ''
+    item.price = item.price == null ? null : item.price
+    item.wearCount = item.wearCount || 0
+  })
+  await tx.outfits.toCollection().modify((outfit) => {
+    outfit.favorite = outfit.favorite || false
+    outfit.wearCount = outfit.wearCount || 0
+  })
+})
