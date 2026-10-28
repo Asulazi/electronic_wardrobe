@@ -435,13 +435,13 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Heart,
-  ImagePlus, Layers, Plus, ScanLine, Search, ShieldCheck, Shirt, Sparkles, Star, X
+  ImagePlus, Layers, Plus, ScanLine, Search, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
 import { exportBackup, importBackup } from './backup'
 import { db } from './db'
-import { blobUrl, normalizeImages } from './images'
+import { dataUrlFromImage, imageUrl, normalizeImages } from './images'
 import { CATEGORIES, MATERIALS, SCENES, SEASONS, STATUSES, categoryLabel, formatDate, seasonText, statusLabel } from './config'
 
 const appVersion = __APP_VERSION__
@@ -545,7 +545,7 @@ const monthUnusedCount = computed(() => activeClothes.value.length - monthActive
 
 const detailImages = computed(() => {
   if (!detailItem.value) return []
-  return detailItem.value.images.map((blob) => blobUrl(blob))
+  return detailItem.value.images.map((image) => imageUrl(image))
 })
 
 async function refresh() {
@@ -556,8 +556,8 @@ async function refresh() {
     images: item.images || (item.image ? [item.image] : []),
     tags: item.tags || [],
     seasons: item.seasons || [],
-    imageUrl: blobUrl(item.image)
-  })).map((item) => ({ ...item, coverImage: blobUrl(item.images[0] || item.image) }))
+    imageUrl: imageUrl(item.image)
+  })).map((item) => ({ ...item, coverImage: imageUrl(item.images[0] || item.image) }))
   outfits.value = await db.outfits.orderBy('createdAt').reverse().toArray()
   wearLogs.value = await db.wearLogs.orderBy('date').reverse().toArray()
 }
@@ -804,8 +804,10 @@ function addDetailTag() {
 }
 
 async function saveDetail() {
+  saving.value = true
   const item = toRaw(detailItem.value)
-  const images = item.images.filter((image) => image instanceof Blob && image.size > 0)
+  const images = (await Promise.all(item.images.map((image) => dataUrlFromImage(image)))).filter(Boolean)
+  if (!images.length && !confirm('这件单品没有任何有效图片，确定继续保存吗？')) return
   const data = {
     name: item.name, category: item.category, seasons: [...item.seasons], status: item.status,
     archived: Boolean(item.archived), favorite: Boolean(item.favorite),
@@ -821,7 +823,10 @@ async function saveDetail() {
     await refresh()
   } catch (error) {
     console.error(error)
-    alert('保存失败：图片或资料没有写入本地数据库，请重试。')
+    const reason = error?.message ? `（${error.message}）` : ''
+    alert(`保存失败：图片或资料没有写入本地数据库${reason}。请重试。`)
+  } finally {
+    saving.value = false
   }
 }
 
@@ -838,10 +843,18 @@ async function toggleFavorite(item) {
 }
 
 async function recordItemWear(item) {
+  const before = detailItem.value
+  if (before && (
+    before.images.length !== item.images.length ||
+    before.images.some((image, index) => image !== item.images[index])
+  )) {
+    await saveDetail()
+  }
+  const current = clothesById.value[item.id]
   const today = new Date().toISOString().slice(0, 10)
   await db.transaction('rw', [db.clothes, db.wearLogs], async () => {
     await db.wearLogs.add({ date: today, itemId: item.id, outfitId: null, createdAt: Date.now() })
-    await db.clothes.update(item.id, { wearCount: (item.wearCount || 0) + 1, lastWornAt: Date.now(), updatedAt: Date.now() })
+    await db.clothes.update(item.id, { wearCount: (current?.wearCount || 0) + 1, lastWornAt: Date.now(), updatedAt: Date.now() })
   })
   closeDetail()
   await refresh()

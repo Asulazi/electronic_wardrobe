@@ -1,14 +1,5 @@
 import { db } from './db'
-import { imageToBlob, isImageBlob } from './images'
-
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(reader.error || new Error('图片读取失败'))
-    reader.readAsDataURL(blob)
-  })
-}
+import { dataUrlFromImage } from './images'
 
 function downloadJson(payload) {
   const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
@@ -33,8 +24,8 @@ export async function exportBackup() {
     data: {
       clothes: await Promise.all(clothes.map(async (item) => ({
         ...item,
-        image: item.image ? await blobToDataUrl(item.image) : null,
-        images: await Promise.all((item.images || []).map(async (image) => isImageBlob(image) ? await blobToDataUrl(image) : null))
+        image: await dataUrlFromImage(item.image),
+        images: await Promise.all((item.images || []).map((image) => dataUrlFromImage(image)))
       }))),
       outfits,
       wearLogs
@@ -61,8 +52,8 @@ export async function importBackup(file) {
       return {
         id,
         ...rest,
-        image: await imageToBlob(item.image),
-        images: (await Promise.all((item.images || []).map((image) => imageToBlob(image)))).filter(Boolean)
+        image: await dataUrlFromImage(item.image),
+        images: (await Promise.all((item.images || []).map((image) => dataUrlFromImage(image)))).filter(Boolean)
       }
     }))
     await db.clothes.bulkPut(clothes)
