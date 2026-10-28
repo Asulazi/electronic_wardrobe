@@ -266,6 +266,7 @@
         </header>
         <div v-if="detailItem.images.length" class="carousel">
           <img :src="detailImages[detailCarouselIndex]" alt="" />
+          <span v-if="detailCarouselIndex === 0" class="cover-badge">封面</span>
           <button v-if="detailImages.length > 1" class="carousel-delete" type="button" @click="deleteDetailImage">
             <Trash2 />
           </button>
@@ -282,12 +283,30 @@
             @click="detailImageIndex = index"
           >
             <img :src="imageUrl" alt="" />
+            <span v-if="index === 0" class="mini-cover">封面</span>
           </button>
         </div>
+        <div v-if="detailImages.length" class="image-actions">
+          <button
+            class="secondary-action"
+            type="button"
+            :disabled="detailCarouselIndex === 0"
+            @click="setDetailCover(detailCarouselIndex)"
+          >
+            <Star />
+            设为封面
+          </button>
+          <button class="secondary-action" type="button" @click="replaceInput?.click()">
+            <ImagePlus />
+            替换这张
+          </button>
+        </div>
+        <input ref="replaceInput" class="hidden-input" type="file" accept="image/*" @change="replaceDetailImage" />
         <label class="add-photo">
           <input type="file" accept="image/*" multiple @change="addDetailImages" />
           <span><ImagePlus />添加正面 / 背面 / 细节图</span>
         </label>
+        <button class="primary-action image-save" type="button" :disabled="saving" @click="saveDetail">保存图片与资料修改</button>
         <div class="detail-grid">
           <div class="detail-fields">
             <label><span>名称</span><input v-model.trim="detailItem.name" class="input" type="text" /></label>
@@ -416,7 +435,7 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Heart,
-  ImagePlus, Layers, Plus, ScanLine, Search, ShieldCheck, Shirt, Sparkles, X
+  ImagePlus, Layers, Plus, ScanLine, Search, ShieldCheck, Shirt, Sparkles, Star, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
@@ -451,6 +470,7 @@ const detailImageIndex = ref(0)
 const detailOutfit = ref(null)
 const dateLog = ref(null)
 const newTag = ref('')
+const replaceInput = ref(null)
 const bulkBrand = ref('')
 const bulkPrice = ref(null)
 const backupBusy = ref(false)
@@ -730,7 +750,8 @@ function outfitMeta(outfit) {
 
 async function openDetail(item) {
   detailImageIndex.value = 0
-  detailItem.value = { ...item, images: [...item.images] }
+  const images = item.images.length ? [...item.images] : (item.image ? [item.image] : [])
+  detailItem.value = { ...item, images }
 }
 
 function closeDetail() { detailItem.value = null }
@@ -752,6 +773,21 @@ async function addDetailImages(event) {
   if (event.target) event.target.value = ''
 }
 
+async function replaceDetailImage(event) {
+  const file = event.target.files?.[0]
+  if (!file || !detailItem.value) return
+  detailItem.value.images.splice(detailCarouselIndex.value, 1, file)
+  if (event.target) event.target.value = ''
+}
+
+function setDetailCover(index) {
+  const images = detailItem.value.images
+  if (index <= 0 || index >= images.length) return
+  const [selected] = images.splice(index, 1)
+  images.unshift(selected)
+  detailImageIndex.value = 0
+}
+
 function toggleDetailSeason(value) {
   const seasons = detailItem.value.seasons
   detailItem.value.seasons = seasons.includes(value) ? seasons.filter((season) => season !== value) : [...seasons, value]
@@ -769,7 +805,7 @@ function addDetailTag() {
 
 async function saveDetail() {
   const item = toRaw(detailItem.value)
-  const images = item.images.map((image) => image instanceof Blob ? image : image)
+  const images = item.images.filter((image) => image instanceof Blob && image.size > 0)
   const data = {
     name: item.name, category: item.category, seasons: [...item.seasons], status: item.status,
     archived: Boolean(item.archived), favorite: Boolean(item.favorite),
@@ -779,9 +815,14 @@ async function saveDetail() {
     tags: [...item.tags], memo: item.memo || '', note: item.note || '',
     image: images[0] || null, images, updatedAt: Date.now()
   }
-  await db.clothes.update(item.id, data)
-  closeDetail()
-  await refresh()
+  try {
+    await db.clothes.update(item.id, data)
+    closeDetail()
+    await refresh()
+  } catch (error) {
+    console.error(error)
+    alert('保存失败：图片或资料没有写入本地数据库，请重试。')
+  }
 }
 
 async function deleteClothes(item) {
