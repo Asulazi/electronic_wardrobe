@@ -41,8 +41,6 @@
           <button type="button" class="pill small" @click="toggleSort"><ArrowDownUp />{{ sortLabel }}</button>
         </div>
 
-        <div v-if="filteredClothes.length" class="list-meta"><span>共 {{ filteredClothes.length }} 件</span></div>
-
         <section v-if="stagedItems.length" class="panel import-panel">
           <header class="panel-header">
             <div><span class="kicker">新增</span><h2>待入库 {{ stagedItems.length }} 件</h2></div>
@@ -73,14 +71,9 @@
           <p v-if="saveError" class="error-text">{{ saveError }}</p>
         </section>
 
-        <section v-else-if="!filteredClothes.length" class="empty">
-          <Shirt />
-          <h2>{{ clothes.length ? '没有匹配单品' : '衣橱还是空的' }}</h2>
-          <p>{{ clothes.length ? '换个筛选或关键词试试。' : '拍照或从相册添加，支持一件多图和本地抠图。' }}</p>
-          <button class="primary-action" type="button" @click="openImport">添加单品</button>
-        </section>
+        <div v-if="filteredClothes.length" class="list-meta"><span>共 {{ filteredClothes.length }} 件</span></div>
 
-        <template v-else>
+        <template v-if="filteredClothes.length">
           <section v-if="viewMode === 'grid'" class="wardrobe-grid">
             <article v-for="item in filteredClothes" :key="item.id" class="product-card">
               <button class="product-image" type="button" @click="openDetail(item)">
@@ -99,7 +92,7 @@
             </article>
           </section>
 
-          <section v-else-if="viewMode === 'grouped'" class="grouped-view">
+          <section v-if="viewMode === 'grouped'" class="grouped-view">
             <section v-for="group in groupedClothes" :key="group.value" class="panel">
               <header class="panel-header"><div><span class="kicker">{{ group.count }} 件</span><h2>{{ group.label }}</h2></div></header>
               <div class="group-row">
@@ -112,7 +105,7 @@
             </section>
           </section>
 
-          <section v-else class="list-view">
+          <section v-if="viewMode === 'list'" class="list-view">
             <button v-for="item in filteredClothes" :key="item.id" type="button" class="list-row" @click="openDetail(item)">
               <img v-if="item.coverImage" :src="item.coverImage" alt="" />
               <Shirt v-else />
@@ -121,6 +114,13 @@
             </button>
           </section>
         </template>
+
+        <section v-else-if="!stagedItems.length" class="empty">
+          <Shirt />
+          <h2>{{ clothes.length ? '没有匹配单品' : '衣橱还是空的' }}</h2>
+          <p>{{ clothes.length ? '换个筛选或关键词试试。' : '拍照或从相册添加，支持一件多图和本地抠图。' }}</p>
+          <button class="primary-action" type="button" @click="openImport">添加单品</button>
+        </section>
       </section>
 
       <section v-if="activeTab === 'outfits'" class="view">
@@ -470,6 +470,7 @@
       <button class="center-add" type="button" @click="handleCenterAdd"><Plus /></button>
       <button type="button" :class="{ active: activeTab === 'calendar' }" @click="activeTab = 'calendar'"><CalendarDays /><span>日历</span></button>
       <button type="button" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'"><ChartColumn /><span>统计</span></button>
+      <button type="button" :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'"><Settings /><span>设置</span></button>
     </nav>
   </div>
 </template>
@@ -478,8 +479,8 @@
 import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
-  Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Heart,
-  ImagePlus, Layers, Plus, ScanLine, Search, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
+  Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart,
+  ImagePlus, Layers, Plus, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
@@ -859,7 +860,10 @@ async function saveDetail() {
   saving.value = true
   const item = toRaw(detailItem.value)
   const images = (await Promise.all(item.images.map((image) => dataUrlFromImage(image)))).filter(Boolean)
-  if (!images.length && !confirm('这件单品没有任何有效图片，确定继续保存吗？')) return
+  if (!images.length && !confirm('这件单品没有任何有效图片，确定继续保存吗？')) {
+    saving.value = false
+    return
+  }
   const data = {
     name: item.name, category: item.category, seasons: [...item.seasons], status: item.status,
     archived: Boolean(item.archived), favorite: Boolean(item.favorite),
@@ -895,14 +899,17 @@ async function toggleFavorite(item) {
 }
 
 async function recordItemWear(item) {
-  const before = detailItem.value
-  if (before && (
-    before.images.length !== item.images.length ||
-    before.images.some((image, index) => image !== item.images[index])
+  const before = toRaw(detailItem.value)
+  const saved = await db.clothes.get(item.id)
+  if (saved && (
+    before.name !== saved.name ||
+    before.brand !== saved.brand ||
+    before.memo !== saved.memo ||
+    before.images.length !== (saved.images || []).length
   )) {
     await saveDetail()
   }
-  const current = clothesById.value[item.id]
+  const current = await db.clothes.get(item.id)
   const today = new Date().toISOString().slice(0, 10)
   await db.transaction('rw', [db.clothes, db.wearLogs], async () => {
     await db.wearLogs.add({ date: today, itemId: item.id, outfitId: null, createdAt: Date.now() })
@@ -917,6 +924,7 @@ function closeOutfitDetail() { detailOutfit.value = null }
 
 function openSuggestions() {
   outfitMode.value = 'suggest'
+  outfitDraft.value = null
   if (!suggestions.value.length) generateSuggestions()
 }
 

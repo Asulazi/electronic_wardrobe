@@ -777,7 +777,7 @@ button { touch-action: manipulation; }
   left: 0;
   z-index: 40;
   display: grid;
-  grid-template-columns: 1fr 1fr 58px 1fr 1fr;
+  grid-template-columns: 1fr 1fr 50px 1fr 1fr;
   align-items: center;
   width: 100%;
   max-width: 430px;
@@ -802,7 +802,7 @@ button { touch-action: manipulation; }
 
 .bottom-nav > button.active { color: var(--ink); }
 .bottom-nav svg { width: 21px; height: 21px; }
-.bottom-nav span { font-size: 10px; }
+.bottom-nav span { font-size: 9px; }
 
 .center-add {
   position: relative;
