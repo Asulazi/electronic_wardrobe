@@ -667,6 +667,28 @@ button { touch-action: manipulation; }
 .outfit-card header span { display: block; margin-top: 3px; color: var(--ink-2); font-size: 12px; }
 .outfit-actions { display: flex; margin-top: 2px; }
 .outfit-actions .secondary-action { flex: 1; }
+.outfit-actions .icon-action { margin-left: 8px; }
+
+.suggestion-card {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.suggestion-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.suggestion-card strong { font-size: 15px; }
+.suggestion-card .secondary-action { min-height: 38px; padding: 0 11px; font-size: 13px; }
+.suggestion-card .choice-grid { margin-bottom: 0; }
 
 .profile-card {
   display: flex;

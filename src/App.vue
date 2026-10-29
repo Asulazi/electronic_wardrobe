@@ -126,8 +126,38 @@
       <section v-if="activeTab === 'outfits'" class="view">
         <div class="rail">
           <button type="button" class="pill" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">搭配册</button>
+          <button type="button" class="pill" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">本地建议</button>
           <button type="button" class="pill" :class="{ active: outfitMode === 'draft' }" @click="outfitMode = outfitDraft ? 'draft' : 'list'; if (clothes.length) startOutfit()">DIY 拼搭</button>
         </div>
+
+        <section v-if="outfitMode === 'suggest'" class="panel">
+          <header class="panel-header">
+            <div><span class="kicker">本地推荐</span><h2>今天怎么搭</h2></div>
+            <button class="icon-action subtle" type="button" @click="outfitMode = 'list'"><X /></button>
+          </header>
+          <div class="field-label">场景</div>
+          <div class="tag-picker">
+            <button v-for="scene in SCENES" :key="scene" type="button" class="tag" :class="{ active: suggestOptions.scene === scene }" @click="suggestOptions.scene = suggestOptions.scene === scene ? '' : scene">{{ scene }}</button>
+          </div>
+          <div class="weather-row">
+            <input v-model.trim="suggestOptions.temperature" class="input" type="text" inputmode="numeric" placeholder="温度：20℃" />
+            <button class="primary-action" type="button" @click="generateSuggestions">生成建议</button>
+          </div>
+          <p v-if="suggestionMessage" class="guide-text">{{ suggestionMessage }}</p>
+          <section v-for="(suggestion, index) in suggestions" :key="index" class="suggestion-card">
+            <header>
+              <strong>{{ suggestion.name }}</strong>
+              <button class="secondary-action" type="button" @click="useSuggestion(suggestion)">采用并保存</button>
+            </header>
+            <div class="choice-grid">
+              <div v-for="itemId in suggestion.itemIds" :key="itemId" class="choice static">
+                <img v-if="clothesById[itemId]?.coverImage" :src="clothesById[itemId].coverImage" alt="" />
+                <Shirt v-else />
+                <span>{{ clothesById[itemId]?.name || '已删除' }}</span>
+              </div>
+            </div>
+          </section>
+        </section>
 
         <section v-if="outfitDraft && !clothes.length" class="panel">
           <header class="panel-header"><div><span class="kicker">创建搭配</span><h2>先添加单品</h2></div><button class="icon-action subtle" type="button" @click="outfitDraft = null"><X /></button></header>
@@ -190,7 +220,10 @@
                   <span>{{ clothesById[itemId]?.name || '已删除' }}</span>
                 </div>
               </div>
-              <div class="outfit-actions"><button class="secondary-action" type="button" @click="openOutfitDetail(outfit)">详情 / 记录</button></div>
+              <div class="outfit-actions">
+                <button class="secondary-action" type="button" @click="openOutfitDetail(outfit)">详情 / 记录</button>
+                <button class="icon-action subtle" type="button" title="复制搭配" @click="duplicateOutfit(outfit)"><Copy /></button>
+              </div>
             </article>
           </section>
         </template>
@@ -230,6 +263,13 @@
           <button class="primary-action" type="button" :disabled="backupBusy" @click="handleExport">{{ backupBusy ? '处理中' : '导出备份' }}</button>
           <button class="secondary-action full" type="button" @click="backupInput?.click()">导入备份</button>
           <p v-if="backupMessage" class="backup-message">{{ backupMessage }}</p>
+        </section>
+        <section class="panel">
+          <header class="panel-header"><div><span class="kicker">表格数据</span><h2>Excel 导出 / 导入</h2></div></header>
+          <p class="guide-text">Excel 只同步文字资料，不包含图片。导入会新增单品，不会覆盖现有数据。</p>
+          <button class="primary-action" type="button" @click="handleExcelExport">导出 Excel</button>
+          <button class="secondary-action full" type="button" @click="excelInput?.click()">导入 Excel</button>
+          <p v-if="excelMessage" class="backup-message">{{ excelMessage }}</p>
         </section>
         <section class="panel">
           <header class="panel-header"><div><span class="kicker">显示偏好</span><h2>默认设置</h2></div></header>
@@ -394,6 +434,9 @@
         </div>
         <div class="detail-stats"><span>穿过 {{ detailOutfit.wearCount || 0 }} 次</span></div>
         <div class="detail-actions">
+          <button class="primary-action" type="button" @click="exportDetailOutfitImage">导出搭配图</button>
+        </div>
+        <div class="detail-actions">
           <button class="primary-action" type="button" @click="recordOutfitWear(detailOutfit)">记录今天穿着</button>
           <button class="secondary-action full" type="button" @click="saveOutfitDetail">保存修改</button>
           <button class="danger-action" type="button" @click="deleteOutfit(detailOutfit)">删除搭配</button>
@@ -419,6 +462,7 @@
 
     <input ref="fileInput" class="hidden-input" type="file" accept="image/*" multiple @change="handleFiles" />
     <input ref="backupInput" class="hidden-input" type="file" accept="application/json,.json" @change="handleBackupImport" />
+    <input ref="excelInput" class="hidden-input" type="file" accept=".xlsx,.xls,.csv" @change="handleExcelImport" />
 
     <nav class="bottom-nav" aria-label="主导航">
       <button type="button" :class="{ active: activeTab === 'wardrobe' }" @click="activeTab = 'wardrobe'"><Shirt /><span>衣橱</span></button>
@@ -434,12 +478,15 @@
 import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
-  Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Heart,
+  Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Heart,
   ImagePlus, Layers, Plus, ScanLine, Search, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
 import { exportBackup, importBackup } from './backup'
+import { exportClothesExcel, importClothesExcel } from './excel'
+import { exportOutfitImage } from './outfitImage'
+import { suggestOutfits } from './suggest'
 import { db } from './db'
 import { dataUrlFromImage, imageUrl, normalizeImages } from './images'
 import { CATEGORIES, MATERIALS, SCENES, SEASONS, STATUSES, categoryLabel, formatDate, seasonText, statusLabel } from './config'
@@ -475,6 +522,11 @@ const bulkBrand = ref('')
 const bulkPrice = ref(null)
 const backupBusy = ref(false)
 const backupMessage = ref('')
+const excelInput = ref(null)
+const excelMessage = ref('')
+const suggestions = ref([])
+const suggestionMessage = ref('')
+const suggestOptions = reactive({ scene: '', temperature: '' })
 const now = new Date()
 const calendarYear = ref(now.getFullYear())
 const calendarMonth = ref(now.getMonth())
@@ -862,6 +914,92 @@ async function recordItemWear(item) {
 
 async function openOutfitDetail(outfit) { detailOutfit.value = { ...outfit } }
 function closeOutfitDetail() { detailOutfit.value = null }
+
+function openSuggestions() {
+  outfitMode.value = 'suggest'
+  if (!suggestions.value.length) generateSuggestions()
+}
+
+function generateSuggestions() {
+  suggestions.value = suggestOutfits(clothes.value, {
+    scene: suggestOptions.scene,
+    temperature: suggestOptions.temperature
+  })
+  suggestionMessage.value = suggestions.value.length
+    ? '全部在本机计算，只基于分类、季节、场景和穿着频次。'
+    : '单品还不够，先补齐上衣/下装/连衣裙和鞋子，再生成建议。'
+}
+
+async function useSuggestion(suggestion) {
+  const timestamp = Date.now()
+  await db.outfits.add({
+    name: suggestion.name,
+    seasons: [...suggestion.seasons],
+    itemIds: [...suggestion.itemIds],
+    scene: suggestion.scene || '',
+    weather: '',
+    temperature: suggestOptions.temperature || '',
+    styleTags: [],
+    note: '',
+    favorite: false,
+    wearCount: 0,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  })
+  outfitMode.value = 'list'
+  await refresh()
+}
+
+async function duplicateOutfit(outfit) {
+  const timestamp = Date.now()
+  const source = toRaw(outfit)
+  const { id, ...rest } = source
+  await db.outfits.add({
+    ...rest,
+    name: `${source.name} 副本`,
+    wearCount: 0,
+    favorite: false,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  })
+  await refresh()
+}
+
+async function exportDetailOutfitImage() {
+  try {
+    await exportOutfitImage(toRaw(detailOutfit.value), clothesById.value)
+  } catch (error) {
+    console.error(error)
+    alert(error.message || '搭配图导出失败')
+  }
+}
+
+async function handleExcelExport() {
+  excelMessage.value = ''
+  try {
+    const count = await exportClothesExcel()
+    excelMessage.value = `已导出 ${count} 件单品资料。`
+  } catch (error) {
+    console.error(error)
+    excelMessage.value = 'Excel 导出失败，请重试。'
+  }
+}
+
+async function handleExcelImport(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  excelMessage.value = ''
+  try {
+    const count = await importClothesExcel(file)
+    await refresh()
+    excelMessage.value = `已导入 ${count} 行单品资料。`
+  } catch (error) {
+    console.error(error)
+    excelMessage.value = error.message || 'Excel 导入失败：请使用本应用导出的表头。'
+  } finally {
+    if (excelInput.value) excelInput.value.value = ''
+  }
+}
 
 function toggleDetailOutfitSeason(value) {
   const seasons = detailOutfit.value.seasons
