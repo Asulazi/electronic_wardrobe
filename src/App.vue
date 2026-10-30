@@ -436,12 +436,16 @@
           <button v-for="season in SEASONS" :key="season.value" type="button" class="season" :class="{ active: detailOutfit.seasons.includes(season.value) }" @click="toggleDetailOutfitSeason(season.value)">{{ season.label }}</button>
         </div>
         <div class="detail-stats"><span>穿过 {{ detailOutfit.wearCount || 0 }} 次</span></div>
+        <label class="date-record-row">
+          <span>记录日期</span>
+          <input v-model="outfitRecordDate" class="input" type="date" />
+        </label>
         <div class="detail-actions">
           <button class="primary-action" type="button" @click="exportDetailOutfitImage">导出搭配图</button>
         </div>
         <div class="detail-actions">
-          <button class="primary-action" type="button" @click="pendingWearDate ? logOutfitDetailDate() : recordOutfitWear(detailOutfit)">
-            {{ pendingWearDate ? `补录到 ${pendingWearDate}` : '记录今天穿着' }}
+          <button class="primary-action" type="button" @click="logOutfitDetailDate">
+            {{ outfitRecordDate === todayKey() ? '记录今天穿着' : `补录到 ${formatChineseDate(outfitRecordDate)}` }}
           </button>
           <button class="secondary-action full" type="button" @click="saveOutfitDetail">保存修改</button>
           <button class="danger-action" type="button" @click="deleteOutfit(detailOutfit)">删除搭配</button>
@@ -452,19 +456,79 @@
         <div v-if="dateLog" class="sheet-backdrop" @click="dateLog = null">
       <section class="sheet" @click.stop>
         <header class="sheet-header">
-          <div><span class="kicker">穿搭记录</span><h2>{{ dateLog.date }}</h2></div>
+          <div><span class="kicker">穿搭记录</span><h2>{{ formatFullChineseDate(dateLog.date) }}</h2></div>
           <button class="icon-action subtle" type="button" @click="dateLog = null"><X /></button>
         </header>
         <div v-if="dateLog.entries.length" class="date-log-list">
-          <article v-for="entry in dateLog.entries" :key="entry.id" class="date-log-item">
-            <strong>{{ entry.title }}</strong>
-            <span>{{ entry.subtitle }}</span>
+          <article
+            v-for="entry in dateLog.entries"
+            :key="entry.id"
+            class="date-log-item"
+            :class="{ clickable: entry.clickable }"
+            role="button"
+            :tabindex="entry.clickable ? 0 : -1"
+            @click="entry.clickable && openDateLogEntry(entry)"
+            @keyup.enter="entry.clickable && openDateLogEntry(entry)"
+          >
+            <img v-if="entry.image" :src="entry.image" alt="" />
+            <Shirt v-else />
+            <div class="log-main">
+              <strong>{{ entry.title }}</strong>
+              <span>{{ entry.subtitle }}</span>
+            </div>
+            <ChevronRight v-if="entry.clickable" />
           </article>
         </div>
         <p v-else class="guide-text">这一天还没有记录。</p>
-        <div class="date-log-actions">
-          <button class="secondary-action full" type="button" @click="addSingleToDate(dateLog.date)">补录单品</button>
-          <button class="secondary-action full" type="button" @click="addOutfitToDate(dateLog.date)">补录搭配</button>
+        <div v-if="!dateLog.picker" class="date-log-actions">
+          <button class="secondary-action full" type="button" @click="startDatePicker('single')">补录单品</button>
+          <button class="secondary-action full" type="button" @click="startDatePicker('outfit')">补录搭配</button>
+        </div>
+        <div v-else class="collection-picker">
+          <div class="picker-title">
+            <strong>{{ dateLog.picker === 'single' ? '选择单品' : '选择搭配' }}</strong>
+            <button class="text-action" type="button" @click="dateLog.picker = ''; dateLog.selectedIds = []">取消</button>
+          </div>
+          <div class="selection-grid">
+            <template v-if="dateLog.picker === 'single'">
+              <button
+                v-for="item in activeClothes"
+                :key="item.id"
+                type="button"
+                class="selection-card"
+                :class="{ selected: dateLog.selectedIds.includes(item.id) }"
+                @click="toggleDateSelection(item.id)"
+              >
+                <img v-if="item.coverImage" :src="item.coverImage" alt="" />
+                <Shirt v-else />
+                <strong>{{ item.name }}</strong>
+                <span>{{ categoryLabel(item.category) }} · {{ statusLabel(item.status) }}</span>
+                <span class="check"><Check /></span>
+              </button>
+            </template>
+            <template v-else>
+              <button
+                v-for="outfit in outfits"
+                :key="outfit.id"
+                type="button"
+                class="selection-card"
+                :class="{ selected: dateLog.selectedIds.includes(outfit.id) }"
+                @click="toggleDateSelection(outfit.id)"
+              >
+                <img v-if="outfitPreview(outfit)" :src="outfitPreview(outfit)" alt="" />
+                <Layers v-else />
+                <strong>{{ outfit.name }}</strong>
+                <span>{{ outfitMeta(outfit) }}</span>
+                <span class="check"><Check /></span>
+              </button>
+            </template>
+          </div>
+          <p v-if="dateLog.picker === 'single' ? !activeClothes.length : !outfits.length" class="guide-text">
+            {{ dateLog.picker === 'single' ? '还没有可补录的单品。' : '还没有可补录的搭配。' }}
+          </p>
+          <button class="primary-action full" type="button" :disabled="!dateLog.selectedIds.length" @click="confirmDateSelection">
+            确认补录{{ dateLog.selectedIds.length ? `（${dateLog.selectedIds.length}）` : '' }}
+          </button>
         </div>
       </section>
     </div>
@@ -489,7 +553,7 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart,
-  ImagePlus, Layers, Plus, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
+  Check, ImagePlus, Layers, Plus, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
@@ -538,6 +602,7 @@ const suggestions = ref([])
 const suggestionMessage = ref('')
 const suggestOptions = reactive({ scene: '', temperature: '' })
 const pendingWearDate = ref(null)
+const outfitRecordDate = ref(new Date().toISOString().slice(0, 10))
 const now = new Date()
 const calendarYear = ref(now.getFullYear())
 const calendarMonth = ref(now.getMonth())
@@ -592,6 +657,11 @@ const filteredClothes = computed(() => {
   if (sortMode.value === 'worn') result = [...result].sort((a, b) => (b.wearCount || 0) - (a.wearCount || 0))
   return result
 })
+
+function outfitPreview(outfit) {
+  const first = outfit.itemIds?.map((id) => clothesById.value[id]).find((item) => item?.coverImage)
+  return first?.coverImage || ''
+}
 
 const groupedClothes = computed(() => CATEGORIES.map((category) => ({
   ...category,
@@ -944,16 +1014,21 @@ async function recordItemWear(item) {
   await refresh()
 }
 
-async function openOutfitDetail(outfit) { detailOutfit.value = { ...outfit } }
+async function openOutfitDetail(outfit) {
+  detailOutfit.value = { ...outfit }
+  outfitRecordDate.value = todayKey()
+}
+
 function closeOutfitDetail() { detailOutfit.value = null }
 
 async function logOutfitDetailDate() {
-  const date = pendingWearDate.value || new Date().toISOString().slice(0, 10)
+  const date = outfitRecordDate.value || new Date().toISOString().slice(0, 10)
   const outfitId = toRaw(detailOutfit.value).id
   await addWearLogForDate(date, null, outfitId)
-  pendingWearDate.value = null
   closeOutfitDetail()
   activeTab.value = 'calendar'
+  openDateLog(date)
+  outfitRecordDate.value = new Date().toISOString().slice(0, 10)
 }
 
 function openSuggestions() {
@@ -1014,6 +1089,20 @@ async function exportDetailOutfitImage() {
     console.error(error)
     alert(error.message || '搭配图导出失败')
   }
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function formatChineseDate(date) {
+  const value = new Date(`${date}T12:00:00`)
+  return Number.isNaN(value.getTime()) ? date : `${value.getMonth() + 1} 月 ${value.getDate()} 日`
+}
+
+function formatFullChineseDate(date) {
+  const value = new Date(`${date}T12:00:00`)
+  return Number.isNaN(value.getTime()) ? date : `${value.getFullYear()} 年 ${value.getMonth() + 1} 月 ${value.getDate()} 日`
 }
 
 async function handleExcelExport() {
@@ -1085,12 +1174,44 @@ function openDateLog(date) {
   const entries = wearLogs.value.filter((log) => log.date === date).map((log) => {
     if (log.itemId) {
       const item = clothesById.value[log.itemId]
-      return { id: log.id, title: item?.name || '单品已删除', subtitle: item ? categoryLabel(item.category) : '单品' }
+      return {
+        id: log.id,
+        type: 'single',
+        targetId: log.itemId,
+        title: item?.name || '单品已删除',
+        subtitle: item ? categoryLabel(item.category) : '单品',
+        image: item?.coverImage || '',
+        clickable: Boolean(item)
+      }
     }
     const outfit = outfitsById.value[log.outfitId]
-    return { id: log.id, title: outfit?.name || '搭配已删除', subtitle: outfit ? outfitMeta(outfit) : '搭配' }
+    return {
+      id: log.id,
+      type: 'outfit',
+      targetId: log.outfitId,
+      title: outfit?.name || '搭配已删除',
+      subtitle: outfit ? outfitMeta(outfit) : '搭配',
+      image: outfit ? outfitPreview(outfit) : '',
+      clickable: Boolean(outfit)
+    }
   })
-  dateLog.value = { date, entries }
+  dateLog.value = { date, entries, picker: '', selectedIds: [] }
+}
+
+function openDateLogEntry(entry) {
+  dateLog.value = null
+  if (entry.type === 'single') {
+    activeTab.value = 'wardrobe'
+    const item = clothes.value.find((clothesItem) => clothesItem.id === entry.targetId)
+    if (item) openDetail(item)
+    return
+  }
+  const outfit = outfits.value.find((outfitItem) => outfitItem.id === entry.targetId)
+  if (outfit) {
+    activeTab.value = 'outfits'
+    outfitMode.value = 'list'
+    openOutfitDetail(outfit)
+  }
 }
 
 function navigateCalendar(direction) {
@@ -1121,17 +1242,29 @@ async function addWearLogForDate(date, itemId = null, outfitId = null) {
   await refresh()
 }
 
-function addSingleToDate(date) {
-  dateLog.value = null
-  activeTab.value = 'wardrobe'
-  pendingWearDate.value = date
+function startDatePicker(type) {
+  dateLog.value = {
+    ...dateLog.value,
+    picker: type,
+    selectedIds: []
+  }
 }
 
-function addOutfitToDate(date) {
-  dateLog.value = null
-  activeTab.value = 'outfits'
-  outfitMode.value = 'list'
-  pendingWearDate.value = date
+function toggleDateSelection(id) {
+  const selected = dateLog.value.selectedIds
+  dateLog.value.selectedIds = selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id]
+}
+
+async function confirmDateSelection() {
+  if (!dateLog.value?.selectedIds.length) return
+  const date = dateLog.value.date
+  const selected = [...dateLog.value.selectedIds]
+  for (const id of selected) {
+    if (dateLog.value.picker === 'single') await addWearLogForDate(date, id, null)
+    else await addWearLogForDate(date, null, id)
+  }
+  pendingWearDate.value = null
+  await openDateLog(date)
 }
 
 async function loadSettings() {
