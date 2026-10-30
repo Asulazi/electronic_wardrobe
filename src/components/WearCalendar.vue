@@ -1,11 +1,11 @@
 <template>
   <div>
     <header class="calendar-header">
-      <button class="round-button" type="button" @click="changeMonth(-1)">
+      <button class="round-button" type="button" @click="$emit('navigate', -1)">
         <ChevronLeft />
       </button>
       <strong>{{ year }} 年 {{ month + 1 }} 月</strong>
-      <button class="round-button" type="button" @click="changeMonth(1)">
+      <button class="round-button" type="button" @click="$emit('navigate', 1)">
         <ChevronRight />
       </button>
     </header>
@@ -25,7 +25,12 @@
       >
         <span>{{ day }}</span>
         <div class="day-images">
-          <img v-for="(entry, index) in entriesFor(day).slice(0, 3)" :key="index" :src="entry" alt="" />
+          <img
+            v-for="(image, index) in dayImages(day)"
+            :key="index"
+            :src="image"
+            alt=""
+          />
         </div>
       </button>
     </div>
@@ -44,7 +49,7 @@ const props = defineProps({
   month: Number
 })
 
-defineEmits(['open-date'])
+defineEmits(['open-date', 'navigate'])
 const date = computed(() => new Date(props.year, props.month, 1))
 const daysInMonth = computed(() => new Date(props.year, props.month + 1, 0).getDate())
 const firstWeekday = computed(() => date.value.getDay())
@@ -53,17 +58,17 @@ function dateKey(day) {
   return `${props.year}-${String(props.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-function entriesFor(day) {
+function dayImages(day) {
   const key = dateKey(day)
-  return props.logs.filter((log) => log.date === key).map((log) => {
-    if (log.itemId) return props.clothesById[log.itemId]?.coverImage
+  return props.logs.filter((log) => log.date === key).flatMap((log) => {
+    if (log.itemId) {
+      const image = props.clothesById[log.itemId]?.coverImage
+      return image ? [image] : []
+    }
     const outfit = props.outfitsById[log.outfitId]
-    return outfit ? clothesImage(outfit.itemIds[0]) : ''
-  }).filter(Boolean)
-}
-
-function clothesImage(itemId) {
-  return props.clothesById[itemId]?.coverImage
+    if (!outfit) return []
+    return outfit.itemIds.map((itemId) => props.clothesById[itemId]?.coverImage).filter(Boolean)
+  }).slice(0, 3)
 }
 
 function isToday(day) {

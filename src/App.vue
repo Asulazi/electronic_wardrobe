@@ -8,7 +8,7 @@
         </div>
         <p>{{ pageSubtitle }}</p>
       </div>
-      <button class="icon-action" type="button" @click="handlePrimaryAction">
+      <button v-if="activeTab !== 'stats'" class="icon-action" type="button" @click="handlePrimaryAction">
         <component :is="primaryIcon" />
       </button>
     </header>
@@ -237,10 +237,11 @@
           :year="calendarYear"
           :month="calendarMonth"
           @open-date="openDateLog"
+          @navigate="navigateCalendar"
         />
         <section class="panel">
           <header class="panel-header"><div><span class="kicker">本页统计</span><h2>{{ calendarYear }} 年 {{ calendarMonth + 1 }} 月</h2></div></header>
-          <div class="profile-stats">
+          <div class="profile-stats cols-3">
             <div><strong>{{ monthLogCount }}</strong><span>记录次数</span></div>
             <div><strong>{{ monthActiveItems.length }}</strong><span>穿过单品</span></div>
             <div><strong>{{ monthUnusedCount }}</strong><span>本月未穿</span></div>
@@ -298,12 +299,15 @@
       </section>
     </main>
 
-    <div v-if="detailItem" class="sheet-backdrop" @click="closeDetail">
-      <section class="sheet" @click.stop>
-        <header class="sheet-header">
-          <div><span class="kicker">单品详情</span><h2>{{ detailItem.name }}</h2></div>
-          <button class="icon-action subtle" type="button" @click="closeDetail"><X /></button>
-        </header>
+        <div v-if="detailItem" class="sheet-backdrop" @click="discardDetail">
+          <section class="sheet" @click.stop>
+          <header class="detail-topbar">
+            <button class="secondary-action" type="button" @click="discardDetail"><X />取消</button>
+            <strong class="detail-name">{{ detailItem.name }}</strong>
+            <button class="primary-action compact" type="button" :disabled="saving" @click="recordCurrentItemForPendingDate">
+              {{ pendingWearDate ? '补录保存' : '保存' }}
+            </button>
+          </header>
         <div v-if="detailItem.images.length" class="carousel">
           <img :src="detailImages[detailCarouselIndex]" alt="" />
           <span v-if="detailCarouselIndex === 0" class="cover-badge">封面</span>
@@ -399,9 +403,8 @@
           <input v-model="detailItem.archived" type="checkbox" />
         </label>
         <div class="detail-stats"><span>穿过 {{ detailItem.wearCount || 0 }} 次</span><span>最近 {{ formatDate(detailItem.lastWornAt) }}</span><span>入库 {{ formatDate(detailItem.createdAt) }}</span></div>
-        <div class="detail-actions">
+        <div v-if="!pendingWearDate" class="detail-actions">
           <button class="primary-action" type="button" @click="recordItemWear(detailItem)">记录今天穿着</button>
-          <button class="secondary-action full" type="button" @click="saveDetail">保存修改</button>
           <button class="danger-action" type="button" @click="deleteClothes(detailItem)">删除单品</button>
         </div>
       </section>
@@ -437,14 +440,16 @@
           <button class="primary-action" type="button" @click="exportDetailOutfitImage">导出搭配图</button>
         </div>
         <div class="detail-actions">
-          <button class="primary-action" type="button" @click="recordOutfitWear(detailOutfit)">记录今天穿着</button>
+          <button class="primary-action" type="button" @click="pendingWearDate ? logOutfitDetailDate() : recordOutfitWear(detailOutfit)">
+            {{ pendingWearDate ? `补录到 ${pendingWearDate}` : '记录今天穿着' }}
+          </button>
           <button class="secondary-action full" type="button" @click="saveOutfitDetail">保存修改</button>
           <button class="danger-action" type="button" @click="deleteOutfit(detailOutfit)">删除搭配</button>
         </div>
       </section>
     </div>
 
-    <div v-if="dateLog" class="sheet-backdrop" @click="dateLog = null">
+        <div v-if="dateLog" class="sheet-backdrop" @click="dateLog = null">
       <section class="sheet" @click.stop>
         <header class="sheet-header">
           <div><span class="kicker">穿搭记录</span><h2>{{ dateLog.date }}</h2></div>
@@ -457,6 +462,10 @@
           </article>
         </div>
         <p v-else class="guide-text">这一天还没有记录。</p>
+        <div class="date-log-actions">
+          <button class="secondary-action full" type="button" @click="addSingleToDate(dateLog.date)">补录单品</button>
+          <button class="secondary-action full" type="button" @click="addOutfitToDate(dateLog.date)">补录搭配</button>
+        </div>
       </section>
     </div>
 
@@ -464,10 +473,10 @@
     <input ref="backupInput" class="hidden-input" type="file" accept="application/json,.json" @change="handleBackupImport" />
     <input ref="excelInput" class="hidden-input" type="file" accept=".xlsx,.xls,.csv" @change="handleExcelImport" />
 
+    <button v-if="activeTab !== 'settings'" class="floating-add" type="button" @click="handleCenterAdd"><Plus /></button>
     <nav class="bottom-nav" aria-label="主导航">
       <button type="button" :class="{ active: activeTab === 'wardrobe' }" @click="activeTab = 'wardrobe'"><Shirt /><span>衣橱</span></button>
       <button type="button" :class="{ active: activeTab === 'outfits' }" @click="activeTab = 'outfits'"><Layers /><span>搭配册</span></button>
-      <button class="center-add" type="button" @click="handleCenterAdd"><Plus /></button>
       <button type="button" :class="{ active: activeTab === 'calendar' }" @click="activeTab = 'calendar'"><CalendarDays /><span>日历</span></button>
       <button type="button" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'"><ChartColumn /><span>统计</span></button>
       <button type="button" :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'"><Settings /><span>设置</span></button>
@@ -528,6 +537,7 @@ const excelMessage = ref('')
 const suggestions = ref([])
 const suggestionMessage = ref('')
 const suggestOptions = reactive({ scene: '', temperature: '' })
+const pendingWearDate = ref(null)
 const now = new Date()
 const calendarYear = ref(now.getFullYear())
 const calendarMonth = ref(now.getMonth())
@@ -746,7 +756,7 @@ async function saveItems() {
         seasons: [...item.seasons], color: '', material: '', primaryColor: '', secondaryColor: '',
         brand: bulkBrand.value || '', price: bulkPrice.value === '' || bulkPrice.value == null ? null : Number(bulkPrice.value),
         size: '', purchaseChannel: '', purchasedAt: '', tags: [], note: item.note || '', memo: '',
-        image, images: [image], originalName: item.originalName || '',
+        image: null, images: [image], originalName: item.originalName || '',
         width: Number(item.width) || 0, height: Number(item.height) || 0, processed: Boolean(item.processed),
         favorite: false, archived: false, status: 'normal', wearCount: 0, lastWornAt: null,
         createdAt: now, updatedAt: now
@@ -886,6 +896,21 @@ async function saveDetail() {
   }
 }
 
+async function recordCurrentItemForPendingDate() {
+  const item = toRaw(detailItem.value)
+  if (!item) return
+  if (!pendingWearDate.value) {
+    await saveDetail()
+    return
+  }
+  const date = pendingWearDate.value
+  await saveDetail()
+  await addWearLogForDate(date, item.id, null)
+  pendingWearDate.value = null
+  activeTab.value = 'calendar'
+  openDateLog(date)
+}
+
 async function deleteClothes(item) {
   if (!confirm(`删除「${item.name}」？搭配中的引用会显示为已删除。`)) return
   await db.clothes.delete(item.id)
@@ -921,6 +946,15 @@ async function recordItemWear(item) {
 
 async function openOutfitDetail(outfit) { detailOutfit.value = { ...outfit } }
 function closeOutfitDetail() { detailOutfit.value = null }
+
+async function logOutfitDetailDate() {
+  const date = pendingWearDate.value || new Date().toISOString().slice(0, 10)
+  const outfitId = toRaw(detailOutfit.value).id
+  await addWearLogForDate(date, null, outfitId)
+  pendingWearDate.value = null
+  closeOutfitDetail()
+  activeTab.value = 'calendar'
+}
 
 function openSuggestions() {
   outfitMode.value = 'suggest'
@@ -1030,17 +1064,14 @@ async function toggleOutfitFavorite(outfit) {
 }
 
 async function recordOutfitWear(outfit) {
-  const today = new Date().toISOString().slice(0, 10)
-  await db.transaction('rw', [db.outfits, db.wearLogs, db.clothes], async () => {
-    await db.wearLogs.add({ date: today, itemId: null, outfitId: outfit.id, createdAt: Date.now() })
-    await db.outfits.update(outfit.id, { wearCount: (outfit.wearCount || 0) + 1, updatedAt: Date.now() })
-    for (const itemId of outfit.itemIds) {
-      const item = clothesById.value[itemId]
-      if (item) await db.clothes.update(itemId, { wearCount: (item.wearCount || 0) + 1, lastWornAt: Date.now(), updatedAt: Date.now() })
-    }
-  })
+  await addWearLogForDate(new Date().toISOString().slice(0, 10), null, toRaw(outfit).id)
   closeOutfitDetail()
   await refresh()
+}
+
+function discardDetail() {
+  detailItem.value = null
+  detailImageIndex.value = 0
 }
 
 async function deleteOutfit(outfit) {
@@ -1060,6 +1091,47 @@ function openDateLog(date) {
     return { id: log.id, title: outfit?.name || '搭配已删除', subtitle: outfit ? outfitMeta(outfit) : '搭配' }
   })
   dateLog.value = { date, entries }
+}
+
+function navigateCalendar(direction) {
+  const date = new Date(calendarYear.value, calendarMonth.value + direction, 1)
+  calendarYear.value = date.getFullYear()
+  calendarMonth.value = date.getMonth()
+}
+
+async function addWearLogForDate(date, itemId = null, outfitId = null) {
+  const wornAt = new Date(`${date}T12:00:00`).getTime()
+  await db.transaction('rw', [db.clothes, db.outfits, db.wearLogs], async () => {
+    await db.wearLogs.add({ date, itemId, outfitId, createdAt: Date.now() })
+    if (itemId) {
+      const item = await db.clothes.get(itemId)
+      if (item) await db.clothes.update(itemId, { wearCount: (item.wearCount || 0) + 1, lastWornAt: wornAt, updatedAt: Date.now() })
+    }
+    if (outfitId) {
+      const outfit = await db.outfits.get(outfitId)
+      if (outfit) {
+        await db.outfits.update(outfitId, { wearCount: (outfit.wearCount || 0) + 1, updatedAt: Date.now() })
+        for (const id of outfit.itemIds) {
+          const item = await db.clothes.get(id)
+          if (item) await db.clothes.update(id, { wearCount: (item.wearCount || 0) + 1, lastWornAt: wornAt, updatedAt: Date.now() })
+        }
+      }
+    }
+  })
+  await refresh()
+}
+
+function addSingleToDate(date) {
+  dateLog.value = null
+  activeTab.value = 'wardrobe'
+  pendingWearDate.value = date
+}
+
+function addOutfitToDate(date) {
+  dateLog.value = null
+  activeTab.value = 'outfits'
+  outfitMode.value = 'list'
+  pendingWearDate.value = date
 }
 
 async function loadSettings() {

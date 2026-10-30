@@ -35,7 +35,12 @@ export async function normalizeImages(record) {
     dataUrlFromImage(record.image),
     ...(record.images || []).map((image) => dataUrlFromImage(image))
   ])
-  const images = converted.filter(Boolean)
+  const seen = new Set()
+  const images = converted.filter((value) => {
+    if (!value || seen.has(value)) return false
+    seen.add(value)
+    return true
+  })
   const image = images[0] || null
   const changed = record.image !== image ||
     !Array.isArray(record.images) ||
