@@ -182,7 +182,7 @@
             <button class="text-action" type="button" :disabled="saving || !outfitDraft.layers.length" @click="saveOutfit">{{ saving ? '保存中' : '保存' }}</button>
           </div>
 
-          <div ref="canvasRef" class="diy-canvas" :style="{ background: outfitDraft.background }">
+          <div ref="canvasRef" class="diy-canvas" :style="{ background: outfitDraft.background }" @pointerdown="clearCanvasSelection">
             <div
               v-for="layer in outfitDraft.layers"
               :key="layer.uid"
@@ -264,23 +264,29 @@
           </section>
           <section v-else class="outfit-list">
             <article v-for="outfit in outfits" :key="outfit.id" class="outfit-card">
-              <header>
-                <div>
-                  <button class="product-title" type="button" @click="openOutfitDetail(outfit)">{{ outfit.name }}</button>
-                  <span>{{ outfitMeta(outfit) }}</span>
+              <button class="outfit-preview" type="button" @click="openOutfitDetail(outfit)">
+                <div
+                  class="outfit-layout-preview compact"
+                  :style="{ background: outfit.background || '#fff' }"
+                >
+                  <div
+                    v-for="layer in outfitDisplayLayers(outfit)"
+                    :key="`${outfit.id}-${layer.itemId}`"
+                    class="layout-item"
+                    :style="layerStyle(layer)"
+                  >
+                    <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
+                  </div>
                 </div>
-                <button class="icon-action subtle" type="button" @click="toggleOutfitFavorite(outfit)"><Heart :class="{ filled: outfit.favorite }" /></button>
-              </header>
-              <div class="choice-grid">
-                <div v-for="itemId in outfit.itemIds" :key="itemId" class="choice static">
-                  <img v-if="clothesById[itemId]?.coverImage" :src="clothesById[itemId].coverImage" alt="" />
-                  <Shirt v-else />
-                  <span>{{ clothesById[itemId]?.name || '已删除' }}</span>
+              </button>
+              <div class="outfit-footer">
+                <button class="outfit-name" type="button" @click="openOutfitDetail(outfit)">{{ outfit.name }}</button>
+                <span>{{ formatDate(outfit.createdAt) }}</span>
+                <div class="preview-actions">
+                  <button class="icon-action subtle" type="button" title="收藏搭配" @click="toggleOutfitFavorite(outfit)"><Heart :class="{ filled: outfit.favorite }" /></button>
+                  <button class="icon-action subtle" type="button" title="复制搭配" @click="duplicateOutfit(outfit)"><Copy /></button>
+                  <button class="icon-action subtle" type="button" title="删除搭配" @click="deleteOutfit(outfit)"><Trash2 /></button>
                 </div>
-              </div>
-              <div class="outfit-actions">
-                <button class="secondary-action" type="button" @click="openOutfitDetail(outfit)">详情 / 记录</button>
-                <button class="icon-action subtle" type="button" title="复制搭配" @click="duplicateOutfit(outfit)"><Copy /></button>
               </div>
             </article>
           </section>
@@ -470,9 +476,12 @@
 
     <div v-if="detailOutfit" class="sheet-backdrop" @click="closeOutfitDetail">
       <section class="sheet" @click.stop>
-        <header class="sheet-header">
-          <div><span class="kicker">搭配详情</span><h2>{{ detailOutfit.name }}</h2></div>
-          <button class="icon-action subtle" type="button" @click="closeOutfitDetail"><X /></button>
+        <header class="detail-topbar">
+          <button class="secondary-action" type="button" @click="closeOutfitDetail"><X />关闭</button>
+          <strong class="detail-name">{{ detailOutfit.name }}</strong>
+          <button class="primary-action compact" type="button" :disabled="savingOutfitDetail" @click="saveOutfitDetail">
+            {{ savingOutfitDetail ? '保存中' : '保存' }}
+          </button>
         </header>
         <div class="choice-grid">
           <div
@@ -503,7 +512,6 @@
             </div>
           </div>
         </div>
-        <label><span class="field-label">名称</span><input v-model.trim="detailOutfit.name" class="input" type="text" /></label>
         <div class="field-label">场景</div>
         <div class="tag-picker">
           <button v-for="scene in SCENES" :key="scene" type="button" class="tag" :class="{ active: detailOutfit.scene === scene }" @click="detailOutfit.scene = detailOutfit.scene === scene ? '' : scene">{{ scene }}</button>
@@ -527,9 +535,47 @@
           <button class="primary-action" type="button" @click="logOutfitDetailDate">
             {{ outfitRecordDate === todayKey() ? '记录今天穿着' : `补录到 ${formatChineseDate(outfitRecordDate)}` }}
           </button>
-          <button class="secondary-action full" type="button" @click="saveOutfitDetail">保存修改</button>
           <button class="danger-action" type="button" @click="deleteOutfit(detailOutfit)">删除搭配</button>
         </div>
+      </section>
+    </div>
+
+    <div v-if="outfitResult" class="sheet-backdrop" @click="closeOutfitResult">
+      <section class="sheet result-sheet" @click.stop>
+        <header class="detail-topbar">
+          <button class="secondary-action" type="button" @click="closeOutfitResult"><X />返回</button>
+          <strong class="detail-name">{{ outfitResult.name }}</strong>
+          <button class="primary-action compact" type="button" @click="downloadOutfitResult">下载</button>
+        </header>
+        <img class="result-image" :src="outfitResult.url" :alt="outfitResult.name" />
+        <p class="result-tip">保存成功了。长按图片也可以存到相册。</p>
+        <div class="detail-actions two-actions">
+          <button class="secondary-action" type="button" @click="closeOutfitResult">查看结果</button>
+          <button class="secondary-action" type="button" @click="continueOutfitDraft">继续搭配</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="outfitSaveMeta" class="sheet-backdrop" @click="outfitSaveMeta = false">
+      <section class="sheet" @click.stop>
+        <header class="detail-topbar">
+          <button class="secondary-action" type="button" @click="outfitSaveMeta = false"><X />返回</button>
+          <strong class="detail-name">搭配信息</strong>
+          <button class="primary-action compact" type="button" :disabled="saving" @click="confirmSaveOutfit">{{ saving ? '保存中' : '保存' }}</button>
+        </header>
+        <label><span class="field-label">名称</span><input v-model.trim="outfitSaveMeta.name" class="input" type="text" placeholder="例如：通勤黑裤套装" /></label>
+        <div class="field-label">场景</div>
+        <div class="tag-picker">
+          <button v-for="scene in SCENES" :key="scene" type="button" class="tag" :class="{ active: outfitSaveMeta.scene === scene }" @click="outfitSaveMeta.scene = outfitSaveMeta.scene === scene ? '' : scene">{{ scene }}</button>
+        </div>
+        <div class="season-picker">
+          <button v-for="season in SEASONS" :key="season.value" type="button" class="season" :class="{ active: outfitSaveMeta.seasons.includes(season.value) }" @click="toggleOutfitSaveSeason(season.value)">{{ season.label }}</button>
+        </div>
+        <div class="weather-row">
+          <input v-model.trim="outfitSaveMeta.weather" class="input" type="text" placeholder="天气" />
+          <input v-model.trim="outfitSaveMeta.temperature" class="input" type="text" inputmode="numeric" placeholder="温度" />
+        </div>
+        <p class="guide-text">保存后会生成本地搭配图，可以长按保存。</p>
       </section>
     </div>
 
@@ -639,7 +685,7 @@ import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
 import { exportBackup, importBackup } from './backup'
 import { exportClothesExcel, importClothesExcel } from './excel'
-import { exportOutfitImage } from './outfitImage'
+import { buildOutfitImage, exportOutfitImage } from './outfitImage'
 import { suggestOutfits } from './suggest'
 import { db } from './db'
 import { dataUrlFromImage, imageUrl, normalizeImages } from './images'
@@ -669,6 +715,9 @@ const canvasRef = ref(null)
 const canvasCategory = ref('all')
 const selectedLayerId = ref(null)
 const showDraftMeta = ref(false)
+const outfitSaveMeta = ref(null)
+const outfitResult = ref(null)
+const savingOutfitDetail = ref(false)
 const CANVAS_COLORS = ['#ffffff', '#e9dff2', '#f6ead8', '#f1f1ee', '#f4f6dd', '#dff0f8', '#f8e2e2']
 const CANVAS_CATEGORIES = [
   { value: 'all', label: '全部' },
@@ -760,12 +809,33 @@ function outfitPreview(outfit) {
   return first?.coverImage || ''
 }
 
+function outfitDisplayLayers(outfit) {
+  if (outfit.layout && Object.keys(outfit.layout).length) {
+    return outfit.itemIds
+      .filter((itemId) => outfit.layout[String(itemId)])
+      .map((itemId) => ({ itemId, ...outfit.layout[String(itemId)] }))
+      .sort((left, right) => (left.z || 0) - (right.z || 0))
+  }
+  return outfit.itemIds.map((itemId, index) => ({
+    itemId,
+    x: index % 2 ? 70 : 34,
+    y: 18 + index * 26,
+    width: 42,
+    rotation: 0,
+    z: index + 1
+  }))
+}
+
 function outfitLayoutLayers(outfit) {
   const entries = outfit.itemIds
     .map((itemId) => [itemId, outfit.layout?.[String(itemId)]])
     .filter(([, layout]) => layout)
     .map(([itemId, layout]) => ({ itemId, ...layout }))
   return entries.sort((left, right) => (left.z || 0) - (right.z || 0))
+}
+
+function clearCanvasSelection() {
+  selectedLayerId.value = null
 }
 
 const groupedClothes = computed(() => CATEGORIES.map((category) => ({
@@ -1080,14 +1150,32 @@ function startCanvasDrag(event, uid) {
 }
 
 async function saveOutfit() {
+  if (!outfitDraft.value?.layers.length) return
+  outfitSaveMeta.value = {
+    name: outfitDraft.value.name || '',
+    scene: outfitDraft.value.scene || '',
+    seasons: [...outfitDraft.value.seasons],
+    weather: outfitDraft.value.weather || '',
+    temperature: outfitDraft.value.temperature || ''
+  }
+}
+
+function toggleOutfitSaveSeason(value) {
+  const seasons = outfitSaveMeta.value.seasons
+  outfitSaveMeta.value.seasons = seasons.includes(value) ? seasons.filter((season) => season !== value) : [...seasons, value]
+}
+
+async function confirmSaveOutfit() {
   saving.value = true
   saveError.value = ''
   try {
     const now = Date.now()
     const draft = toRaw(outfitDraft.value)
+    const meta = toRaw(outfitSaveMeta.value)
+    const name = meta.name || `搭配 ${formatDate(now)}`
     await db.outfits.add({
-      name: draft.name || '未命名搭配', seasons: [...draft.seasons], itemIds: [...draft.itemIds],
-      scene: draft.scene || '', weather: draft.weather || '', temperature: draft.temperature || '',
+      name, seasons: [...meta.seasons], itemIds: [...draft.itemIds],
+      scene: meta.scene || '', weather: meta.weather || '', temperature: meta.temperature || '',
       background: draft.background || '#ffffff',
       layout: Object.fromEntries(draft.layers.map((layer) => [String(layer.itemId), {
         x: layer.x, y: layer.y, width: layer.width, height: layer.height,
@@ -1095,14 +1183,49 @@ async function saveOutfit() {
       }])),
       styleTags: [], note: '', favorite: false, wearCount: 0, createdAt: now, updatedAt: now
     })
-    cancelOutfitDraft()
+    const saved = await db.outfits.where('createdAt').equals(now).first()
+    outfitSaveMeta.value = null
     await refresh()
+    if (saved) await openOutfitResult(saved)
+    outfitDraft.value = null
+    outfitMode.value = 'list'
   } catch (error) {
     console.error(error)
     saveError.value = '保存失败：本地数据库写入未完成，请重试一次。'
   } finally {
     saving.value = false
   }
+}
+
+async function openOutfitResult(outfit) {
+  const source = toRaw(outfit)
+  const blob = await buildOutfitImage(source, clothesById.value)
+  outfitResult.value = {
+    id: source.id,
+    name: source.name,
+    url: URL.createObjectURL(blob),
+    blob
+  }
+}
+
+function closeOutfitResult() {
+  if (outfitResult.value?.url) URL.revokeObjectURL(outfitResult.value.url)
+  outfitResult.value = null
+}
+
+function downloadOutfitResult() {
+  if (!outfitResult.value) return
+  const url = URL.createObjectURL(outfitResult.value.blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${outfitResult.value.name}_${todayKey()}.png`
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1200)
+}
+
+function continueOutfitDraft() {
+  closeOutfitResult()
+  outfitMode.value = 'list'
 }
 
 function outfitMeta(outfit) {
@@ -1369,15 +1492,23 @@ function toggleDetailOutfitSeason(value) {
 }
 
 async function saveOutfitDetail() {
+  savingOutfitDetail.value = true
   const outfit = toRaw(detailOutfit.value)
-  await db.outfits.update(outfit.id, {
-    name: outfit.name, seasons: [...outfit.seasons], scene: outfit.scene || '',
-    weather: outfit.weather || '', temperature: outfit.temperature || '',
-    background: outfit.background || '#ffffff',
-    layout: outfit.layout || {}, updatedAt: Date.now()
-  })
-  closeOutfitDetail()
-  await refresh()
+  try {
+    await db.outfits.update(outfit.id, {
+      name: outfit.name, seasons: [...outfit.seasons], scene: outfit.scene || '',
+      weather: outfit.weather || '', temperature: outfit.temperature || '',
+      background: outfit.background || '#ffffff',
+      layout: outfit.layout || {}, updatedAt: Date.now()
+    })
+    closeOutfitDetail()
+    await refresh()
+  } catch (error) {
+    console.error(error)
+    alert('保存失败：搭配信息没有写入本地数据库，请重试。')
+  } finally {
+    savingOutfitDetail.value = false
+  }
 }
 
 async function toggleOutfitFavorite(outfit) {

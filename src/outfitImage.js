@@ -76,7 +76,7 @@ function roundedRect(context, x, y, width, height, radius) {
   context.roundRect(x, y, width, height, radius)
 }
 
-export async function exportOutfitImage(outfit, clothesById) {
+export async function buildOutfitImage(outfit, clothesById) {
   const width = 1080
   const height = 1600
   const canvas = document.createElement('canvas')
@@ -167,11 +167,15 @@ export async function exportOutfitImage(outfit, clothesById) {
   context.font = '22px -apple-system, PingFang SC, sans-serif'
   context.fillText(`共 ${items.length} 件 · 本地衣橱生成`, 66, 1332)
 
-  const blob = await new Promise((resolve, reject) => canvas.toBlob(
+  return await new Promise((resolve, reject) => canvas.toBlob(
     (result) => result ? resolve(result) : reject(new Error('图片生成失败')),
     'image/png',
     0.92
   ))
+}
+
+export async function exportOutfitImage(outfit, clothesById) {
+  const blob = await buildOutfitImage(outfit, clothesById)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
