@@ -124,10 +124,10 @@
       </section>
 
       <section v-if="activeTab === 'outfits'" class="view">
-        <div class="rail">
+        <div v-if="outfitMode !== 'draft'" class="rail">
           <button type="button" class="pill" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">搭配册</button>
           <button type="button" class="pill" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">本地建议</button>
-          <button type="button" class="pill" :class="{ active: outfitMode === 'draft' }" @click="outfitMode = outfitDraft ? 'draft' : 'list'; if (clothes.length) startOutfit()">DIY 拼搭</button>
+          <button type="button" class="pill" @click="startOutfit">DIY 拼搭</button>
         </div>
 
         <section v-if="outfitMode === 'suggest'" class="panel">
@@ -165,29 +165,87 @@
           <button class="primary-action" type="button" @click="goAddClothes">去衣橱添加</button>
         </section>
 
-        <section v-else-if="outfitDraft" class="panel">
-          <header class="panel-header"><div><span class="kicker">DIY 搭配</span><h2>选择单品</h2></div><button class="icon-action subtle" type="button" @click="cancelOutfitDraft"><X /></button></header>
-          <input v-model.trim="outfitDraft.name" class="input" type="text" placeholder="搭配名称" />
-          <div class="field-label">适用场景</div>
-          <div class="tag-picker">
-            <button v-for="scene in SCENES" :key="scene" type="button" class="tag" :class="{ active: outfitDraft.scene === scene }" @click="outfitDraft.scene = outfitDraft.scene === scene ? '' : scene">{{ scene }}</button>
+        <section v-else-if="outfitDraft" class="diy-view">
+          <div class="diy-toolbar">
+            <button class="icon-action subtle" type="button" title="返回搭配册" @click="cancelOutfitDraft"><ChevronLeft /></button>
+            <div class="palette">
+              <button
+                v-for="color in CANVAS_COLORS"
+                :key="color"
+                type="button"
+                class="palette-dot"
+                :class="{ active: outfitDraft.background === color }"
+                :style="{ background: color }"
+                @click="outfitDraft.background = color"
+              ></button>
+            </div>
+            <button class="text-action" type="button" :disabled="saving || !outfitDraft.layers.length" @click="saveOutfit">{{ saving ? '保存中' : '保存' }}</button>
           </div>
-          <div class="season-picker">
-            <button v-for="season in SEASONS" :key="season.value" type="button" class="season" :class="{ active: outfitDraft.seasons.includes(season.value) }" @click="toggleOutfitSeason(season.value)">{{ season.label }}</button>
+
+          <div ref="canvasRef" class="diy-canvas" :style="{ background: outfitDraft.background }">
+            <div
+              v-for="layer in outfitDraft.layers"
+              :key="layer.uid"
+              class="canvas-item"
+              :class="{ selected: selectedLayerId === layer.uid }"
+              :style="layerStyle(layer)"
+              @pointerdown.stop="startCanvasDrag($event, layer.uid)"
+            >
+              <img :src="layer.src" alt="" draggable="false" />
+              <template v-if="selectedLayerId === layer.uid">
+                <button class="canvas-handle remove" type="button" @pointerdown.stop @click="removeLayer(layer.uid)"><X /></button>
+                <button class="canvas-handle scale" type="button" title="缩放" @pointerdown.stop="startHandle($event, layer.uid, 'scale')"><Maximize2 /></button>
+                <button class="canvas-handle layer-order" type="button" title="调整层级" @pointerdown.stop @click="raiseLayer(layer.uid)"><Layers /></button>
+                <button class="canvas-handle rotate" type="button" title="旋转" @pointerdown.stop="startHandle($event, layer.uid, 'rotate')"><RotateCw /></button>
+              </template>
+            </div>
+            <div v-if="!outfitDraft.layers.length" class="canvas-empty">
+              <Shirt />
+              <strong>从下方添加单品</strong>
+              <span>在画布上拖动位置，用角点调整大小和旋转。</span>
+            </div>
           </div>
-          <div class="weather-row">
-            <input v-model.trim="outfitDraft.weather" class="input" type="text" placeholder="天气：晴 / 雨" />
-            <input v-model.trim="outfitDraft.temperature" class="input" type="text" inputmode="numeric" placeholder="温度：20℃" />
+
+          <div class="diy-bottom">
+            <div class="diy-grip"><span></span></div>
+            <div class="diy-tabs">
+              <button
+                v-for="category in CANVAS_CATEGORIES"
+                :key="category.value"
+                type="button"
+                :class="{ active: canvasCategory === category.value }"
+                @click="canvasCategory = category.value"
+              >{{ category.label }}({{ canvasCounts[category.value] || 0 }})</button>
+            </div>
+            <div class="diy-shelf">
+              <button
+                v-for="item in canvasItems"
+                :key="item.id"
+                type="button"
+                class="diy-item"
+                :class="{ selected: outfitDraft.itemIds.includes(item.id) }"
+                @click="addCanvasItem(item)"
+              >
+                <img v-if="item.coverImage" :src="item.coverImage" alt="" />
+                <Shirt v-else />
+                <span v-if="outfitDraft.itemIds.includes(item.id)" class="diy-check"><Check /></span>
+              </button>
+            </div>
+            <button class="diy-settings-toggle" type="button" @click="showDraftMeta = !showDraftMeta">{{ showDraftMeta ? '收起信息' : '搭配信息' }}</button>
+            <div v-if="showDraftMeta" class="diy-meta">
+              <input v-model.trim="outfitDraft.name" class="input" type="text" placeholder="搭配名称" />
+              <div class="tag-picker">
+                <button v-for="scene in SCENES" :key="scene" type="button" class="tag" :class="{ active: outfitDraft.scene === scene }" @click="outfitDraft.scene = outfitDraft.scene === scene ? '' : scene">{{ scene }}</button>
+              </div>
+              <div class="season-picker">
+                <button v-for="season in SEASONS" :key="season.value" type="button" class="season" :class="{ active: outfitDraft.seasons.includes(season.value) }" @click="toggleOutfitSeason(season.value)">{{ season.label }}</button>
+              </div>
+              <div class="weather-row">
+                <input v-model.trim="outfitDraft.weather" class="input" type="text" placeholder="天气" />
+                <input v-model.trim="outfitDraft.temperature" class="input" type="text" inputmode="numeric" placeholder="温度" />
+              </div>
+            </div>
           </div>
-          <p class="selection-count">已选 {{ outfitDraft.itemIds.length }} 件</p>
-          <div class="choice-grid">
-            <button v-for="item in clothes" :key="item.id" type="button" class="choice" :class="{ selected: outfitDraft.itemIds.includes(item.id) }" @click="toggleOutfitItem(item.id)">
-              <img v-if="item.coverImage" :src="item.coverImage" alt="" />
-              <Shirt v-else />
-              <span>{{ item.name }}</span>
-            </button>
-          </div>
-          <button class="primary-action" type="button" :disabled="!outfitDraft.itemIds.length || saving" @click="saveOutfit">保存搭配</button>
           <p v-if="saveError" class="error-text">{{ saveError }}</p>
         </section>
 
@@ -417,10 +475,32 @@
           <button class="icon-action subtle" type="button" @click="closeOutfitDetail"><X /></button>
         </header>
         <div class="choice-grid">
-          <div v-for="itemId in detailOutfit.itemIds" :key="itemId" class="choice static">
-            <img v-if="clothesById[itemId]?.coverImage" :src="clothesById[itemId].coverImage" alt="" />
-            <Shirt v-else />
-            <span>{{ clothesById[itemId]?.name || '已删除' }}</span>
+          <div
+            v-if="detailOutfit.itemIds.some((itemId) => detailOutfit.layout?.[String(itemId)])"
+            class="outfit-layout-preview"
+            :style="{ background: detailOutfit.background || '#fff' }"
+          >
+            <div
+              v-for="layer in outfitLayoutLayers(detailOutfit)"
+              :key="layer.itemId"
+              class="layout-item"
+              :style="{
+                left: `${layer.x}%`,
+                top: `${layer.y}%`,
+                width: `${layer.width}%`,
+                transform: `translate(-50%, -50%) rotate(${layer.rotation}deg)`,
+                zIndex: layer.z
+              }"
+            >
+              <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
+            </div>
+          </div>
+          <div v-else class="choice-grid">
+            <div v-for="itemId in detailOutfit.itemIds" :key="itemId" class="choice static">
+              <img v-if="clothesById[itemId]?.coverImage" :src="clothesById[itemId].coverImage" alt="" />
+              <Shirt v-else />
+              <span>{{ clothesById[itemId]?.name || '已删除' }}</span>
+            </div>
           </div>
         </div>
         <label><span class="field-label">名称</span><input v-model.trim="detailOutfit.name" class="input" type="text" /></label>
@@ -537,7 +617,7 @@
     <input ref="backupInput" class="hidden-input" type="file" accept="application/json,.json" @change="handleBackupImport" />
     <input ref="excelInput" class="hidden-input" type="file" accept=".xlsx,.xls,.csv" @change="handleExcelImport" />
 
-    <button v-if="activeTab !== 'settings'" class="floating-add" type="button" @click="handleCenterAdd"><Plus /></button>
+    <button v-if="activeTab !== 'settings' && outfitMode !== 'draft'" class="floating-add" type="button" @click="handleCenterAdd"><Plus /></button>
     <nav class="bottom-nav" aria-label="主导航">
       <button type="button" :class="{ active: activeTab === 'wardrobe' }" @click="activeTab = 'wardrobe'"><Shirt /><span>衣橱</span></button>
       <button type="button" :class="{ active: activeTab === 'outfits' }" @click="activeTab = 'outfits'"><Layers /><span>搭配册</span></button>
@@ -553,7 +633,7 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart,
-  Check, ImagePlus, Layers, Plus, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
+  Check, ImagePlus, Layers, Maximize2, Plus, RotateCw, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
@@ -585,6 +665,15 @@ const outfitMode = ref('list')
 const fileInput = ref(null)
 const backupInput = ref(null)
 const outfitDraft = ref(null)
+const canvasRef = ref(null)
+const canvasCategory = ref('all')
+const selectedLayerId = ref(null)
+const showDraftMeta = ref(false)
+const CANVAS_COLORS = ['#ffffff', '#e9dff2', '#f6ead8', '#f1f1ee', '#f4f6dd', '#dff0f8', '#f8e2e2']
+const CANVAS_CATEGORIES = [
+  { value: 'all', label: '全部' },
+  ...CATEGORIES.filter((category) => ['top', 'bottom', 'dress', 'outerwear', 'shoes', 'hat', 'accessory'].includes(category.value))
+]
 const saveError = ref('')
 const detailItem = ref(null)
 const detailImageIndex = ref(0)
@@ -658,9 +747,25 @@ const filteredClothes = computed(() => {
   return result
 })
 
+const canvasCounts = computed(() => activeClothes.value.reduce((result, item) => {
+  result[item.category] = (result[item.category] || 0) + 1
+  result.all = (result.all || 0) + 1
+  return result
+}, {}))
+
+const canvasItems = computed(() => activeClothes.value.filter((item) => canvasCategory.value === 'all' || item.category === canvasCategory.value))
+
 function outfitPreview(outfit) {
   const first = outfit.itemIds?.map((id) => clothesById.value[id]).find((item) => item?.coverImage)
   return first?.coverImage || ''
+}
+
+function outfitLayoutLayers(outfit) {
+  const entries = outfit.itemIds
+    .map((itemId) => [itemId, outfit.layout?.[String(itemId)]])
+    .filter(([, layout]) => layout)
+    .map(([itemId, layout]) => ({ itemId, ...layout }))
+  return entries.sort((left, right) => (left.z || 0) - (right.z || 0))
 }
 
 const groupedClothes = computed(() => CATEGORIES.map((category) => ({
@@ -738,7 +843,13 @@ function goAddClothes() {
 
 function startOutfit() {
   if (!clothes.value.length) return
-  outfitDraft.value = { name: '', seasons: [], itemIds: [], scene: '', weather: '', temperature: '' }
+  outfitDraft.value = {
+    name: '', seasons: [], itemIds: [], scene: '', weather: '', temperature: '',
+    background: '#ffffff', layers: []
+  }
+  canvasCategory.value = 'all'
+  selectedLayerId.value = null
+  showDraftMeta.value = false
   outfitMode.value = 'draft'
 }
 
@@ -848,9 +959,124 @@ function toggleOutfitSeason(value) {
   outfitDraft.value.seasons = seasons.includes(value) ? seasons.filter((season) => season !== value) : [...seasons, value]
 }
 
-function toggleOutfitItem(itemId) {
-  const itemIds = outfitDraft.value.itemIds
-  outfitDraft.value.itemIds = itemIds.includes(itemId) ? itemIds.filter((id) => id !== itemId) : [...itemIds, itemId]
+function layerStyle(layer) {
+  return {
+    left: `${layer.x}%`,
+    top: `${layer.y}%`,
+    width: `${layer.width}%`,
+    transform: `translate(-50%, -50%) rotate(${layer.rotation}deg)`,
+    zIndex: layer.z
+  }
+}
+
+function addCanvasItem(item) {
+  const draft = outfitDraft.value
+  if (!draft) return
+  const existing = draft.layers.find((layer) => layer.itemId === item.id)
+  if (existing) {
+    selectedLayerId.value = existing.uid
+    return
+  }
+  const preset = { top: [50, 26, 40, 0], dress: [50, 38, 38, 0], outerwear: [50, 32, 42, 0], bottom: [50, 64, 40, 0], shoes: [50, 84, 28, 0], hat: [50, 7, 26, 0], accessory: [70, 12, 20, 0] }
+  const [x, y, width, rotation] = preset[item.category] || [58, 50, 26, 0]
+  const uid = `${Date.now()}-${draft.layers.length}`
+  draft.layers.push({
+    uid, itemId: item.id, src: item.coverImage, x, y, width,
+    height: width, rotation, z: draft.layers.length + 1
+  })
+  if (!draft.itemIds.includes(item.id)) draft.itemIds.push(item.id)
+  selectedLayerId.value = uid
+}
+
+function removeLayer(uid) {
+  const draft = outfitDraft.value
+  const layer = draft.layers.find((item) => item.uid === uid)
+  draft.layers = draft.layers.filter((item) => item.uid !== uid)
+  if (layer && !draft.layers.some((item) => item.itemId === layer.itemId)) {
+    draft.itemIds = draft.itemIds.filter((id) => id !== layer.itemId)
+  }
+  selectedLayerId.value = null
+}
+
+function selectLayer(uid) {
+  selectedLayerId.value = uid
+  const draft = outfitDraft.value
+  const maxZ = Math.max(0, ...draft.layers.map((layer) => layer.z))
+  const layer = draft.layers.find((item) => item.uid === uid)
+  if (layer) layer.z = maxZ + 1
+}
+
+function raiseLayer(uid) {
+  const layer = outfitDraft.value.layers.find((item) => item.uid === uid)
+  if (!layer) return
+  const maxZ = Math.max(...outfitDraft.value.layers.map((item) => item.z))
+  layer.z = maxZ + 1
+}
+
+function startHandle(event, uid, mode) {
+  const layer = outfitDraft.value.layers.find((item) => item.uid === uid)
+  const canvas = canvasRef.value
+  if (!layer || !canvas) return
+  event.preventDefault()
+  selectLayer(uid)
+  const rect = canvas.getBoundingClientRect()
+  const startX = event.clientX
+  const startY = event.clientY
+  const startWidth = layer.width
+  const startRotation = layer.rotation
+
+  function move(pointerEvent) {
+    const deltaX = pointerEvent.clientX - startX
+    const deltaY = pointerEvent.clientY - startY
+    if (mode === 'scale') {
+      const distance = Math.max(deltaX, deltaY)
+      layer.width = Math.min(96, Math.max(10, startWidth + distance / rect.width * 100))
+      layer.height = layer.width
+    } else {
+      const centerX = rect.left + rect.width * layer.x / 100
+      const centerY = rect.top + rect.height * layer.y / 100
+      const startAngle = Math.atan2(startY - centerY, startX - centerX)
+      const currentAngle = Math.atan2(pointerEvent.clientY - centerY, pointerEvent.clientX - centerX)
+      layer.rotation = Math.round(startRotation + (currentAngle - startAngle) * 180 / Math.PI)
+    }
+  }
+
+  function up() {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+    window.removeEventListener('pointercancel', up)
+  }
+
+  window.addEventListener('pointermove', move, { passive: true })
+  window.addEventListener('pointerup', up)
+  window.addEventListener('pointercancel', up)
+}
+
+function startCanvasDrag(event, uid) {
+  const layer = outfitDraft.value.layers.find((item) => item.uid === uid)
+  const canvas = canvasRef.value
+  if (!layer || !canvas) return
+  selectLayer(uid)
+  const rect = canvas.getBoundingClientRect()
+  const startX = event.clientX
+  const startY = event.clientY
+  const startXPercent = layer.x
+  const startYPercent = layer.y
+
+  function move(pointerEvent) {
+    layer.x = Math.min(96, Math.max(4, startXPercent + (pointerEvent.clientX - startX) / rect.width * 100))
+    layer.y = Math.min(96, Math.max(4, startYPercent + (pointerEvent.clientY - startY) / rect.height * 100))
+  }
+
+  function up() {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+    window.removeEventListener('pointercancel', up)
+  }
+
+  window.addEventListener('pointermove', move, { passive: true })
+  window.addEventListener('pointerup', up)
+  window.addEventListener('pointercancel', up)
 }
 
 async function saveOutfit() {
@@ -862,6 +1088,11 @@ async function saveOutfit() {
     await db.outfits.add({
       name: draft.name || '未命名搭配', seasons: [...draft.seasons], itemIds: [...draft.itemIds],
       scene: draft.scene || '', weather: draft.weather || '', temperature: draft.temperature || '',
+      background: draft.background || '#ffffff',
+      layout: Object.fromEntries(draft.layers.map((layer) => [String(layer.itemId), {
+        x: layer.x, y: layer.y, width: layer.width, height: layer.height,
+        rotation: layer.rotation, z: layer.z
+      }])),
       styleTags: [], note: '', favorite: false, wearCount: 0, createdAt: now, updatedAt: now
     })
     cancelOutfitDraft()
@@ -1015,7 +1246,7 @@ async function recordItemWear(item) {
 }
 
 async function openOutfitDetail(outfit) {
-  detailOutfit.value = { ...outfit }
+  detailOutfit.value = { ...outfit, layout: outfit.layout || {}, background: outfit.background || '#ffffff' }
   outfitRecordDate.value = todayKey()
 }
 
@@ -1141,7 +1372,9 @@ async function saveOutfitDetail() {
   const outfit = toRaw(detailOutfit.value)
   await db.outfits.update(outfit.id, {
     name: outfit.name, seasons: [...outfit.seasons], scene: outfit.scene || '',
-    weather: outfit.weather || '', temperature: outfit.temperature || '', updatedAt: Date.now()
+    weather: outfit.weather || '', temperature: outfit.temperature || '',
+    background: outfit.background || '#ffffff',
+    layout: outfit.layout || {}, updatedAt: Date.now()
   })
   closeOutfitDetail()
   await refresh()

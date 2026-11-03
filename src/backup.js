@@ -19,7 +19,7 @@ export async function exportBackup() {
   ])
   const payload = {
     type: 'electronic_wardrobe_backup',
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     data: {
       clothes: await Promise.all(clothes.map(async (item) => ({

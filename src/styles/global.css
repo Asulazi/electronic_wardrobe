@@ -742,6 +742,177 @@ button { touch-action: manipulation; }
 
 .outfit-list { display: grid; gap: 12px; }
 
+.diy-view {
+  display: grid;
+  gap: 10px;
+  min-height: calc(100dvh - var(--safe-top) - 150px);
+}
+
+.diy-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.palette {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  overflow-x: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  scrollbar-width: none;
+}
+
+.palette::-webkit-scrollbar { display: none; }
+.palette-dot {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(23,21,15,.12);
+  border-radius: 50%;
+}
+.palette-dot.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--action); }
+
+.diy-canvas {
+  position: relative;
+  overflow: hidden;
+  height: min(48dvh, 470px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  touch-action: none;
+}
+
+.canvas-item {
+  position: absolute;
+  touch-action: none;
+  cursor: grab;
+  transform-origin: center;
+}
+.canvas-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 14px rgba(23,21,15,.10));
+}
+.canvas-item.selected::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid #ec5fb4;
+  border-radius: 5px;
+  pointer-events: none;
+}
+.canvas-handle {
+  position: absolute;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #ec5fb4;
+  color: #fff;
+  touch-action: none;
+}
+.canvas-handle svg { width: 14px; height: 14px; }
+.canvas-handle.remove { left: -14px; top: -14px; }
+.canvas-handle.scale { right: -14px; top: -14px; cursor: nwse-resize; }
+.canvas-handle.layer-order { left: -14px; bottom: -14px; }
+.canvas-handle.rotate { right: -14px; bottom: -14px; cursor: grab; }
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--ink-2);
+}
+.canvas-empty svg { width: 32px; height: 32px; color: var(--ink-3); }
+.canvas-empty strong { font-size: 15px; color: var(--ink); }
+.canvas-empty span { max-width: 230px; font-size: 12px; }
+
+.diy-bottom {
+  display: grid;
+  gap: 9px;
+  padding: 10px 12px calc(var(--safe-bottom) + 10px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.diy-grip { display: grid; justify-items: center; }
+.diy-grip span { width: 38px; height: 4px; border-radius: 999px; background: var(--line); }
+.diy-tabs {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: none;
+}
+.diy-tabs::-webkit-scrollbar { display: none; }
+.diy-tabs button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 700;
+}
+.diy-tabs button.active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+.diy-shelf {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  max-height: 300px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.diy-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 96px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+.diy-item img { max-width: 100%; max-height: 78px; object-fit: contain; }
+.diy-item svg { width: 24px; height: 24px; color: var(--ink-3); }
+.diy-item.selected { box-shadow: inset 0 0 0 1.5px #ec5fb4; }
+.diy-check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ec5fb4;
+  color: #fff;
+}
+.diy-check svg { width: 12px; height: 12px; color: #fff; }
+.diy-settings-toggle { min-height: 36px; border: 0; background: var(--surface-2); border-radius: 8px; color: var(--ink-2); font-size: 13px; }
+.diy-meta { display: grid; gap: 8px; }
+
+.outfit-layout-preview {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.layout-item { position: absolute; }
+.layout-item img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+
 .outfit-card {
   padding: 15px;
   border: 1px solid var(--line);
