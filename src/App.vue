@@ -8,7 +8,7 @@
         </div>
         <p>{{ pageSubtitle }}</p>
       </div>
-      <button v-if="activeTab !== 'stats'" class="icon-action" type="button" @click="handlePrimaryAction">
+      <button v-if="activeTab !== 'stats'" class="icon-action" type="button" :aria-label="primaryActionLabel" @click="handlePrimaryAction">
         <component :is="primaryIcon" />
       </button>
     </header>
@@ -167,7 +167,7 @@
 
         <section v-else-if="outfitDraft" class="diy-view">
           <div class="diy-toolbar">
-            <button class="icon-action subtle" type="button" title="返回搭配册" @click="cancelOutfitDraft"><ChevronLeft /></button>
+            <button class="icon-close" type="button" title="返回搭配册" aria-label="返回搭配册" @click="cancelOutfitDraft"><ChevronLeft /></button>
             <div class="palette">
               <button
                 v-for="color in CANVAS_COLORS"
@@ -179,7 +179,7 @@
                 @click="outfitDraft.background = color"
               ></button>
             </div>
-            <button class="text-action" type="button" :disabled="saving || !outfitDraft.layers.length" @click="saveOutfit">{{ saving ? '保存中' : '保存' }}</button>
+            <button class="icon-action primary" type="button" title="保存" aria-label="保存" :disabled="saving || !outfitDraft.layers.length" @click="saveOutfit"><Check /></button>
           </div>
 
           <div ref="canvasRef" class="diy-canvas" :style="{ background: outfitDraft.background }" @pointerdown="clearCanvasSelection">
@@ -263,32 +263,48 @@
             <button class="primary-action" type="button" @click="startOutfit">创建搭配</button>
           </section>
           <section v-else class="outfit-list">
-            <article v-for="outfit in outfits" :key="outfit.id" class="outfit-card">
-              <button class="outfit-preview" type="button" @click="openOutfitDetail(outfit)">
-                <div
-                  class="outfit-layout-preview compact"
-                  :style="{ background: outfit.background || '#fff' }"
-                >
-                  <div
-                    v-for="layer in outfitDisplayLayers(outfit)"
-                    :key="`${outfit.id}-${layer.itemId}`"
-                    class="layout-item"
-                    :style="layerStyle(layer)"
+            <div class="outfit-catalog">
+                <aside class="outfit-sidebar">
+                  <button
+                    v-for="category in CANVAS_CATEGORIES"
+                    :key="category.value"
+                    type="button"
+                    :class="{ active: outfitListCategory === category.value }"
+                    @click="outfitListCategory = category.value"
+                  >{{ category.label }}</button>
+                </aside>
+                <div class="outfit-catalog-list">
+                  <article
+                    v-for="catalogOutfit in filteredOutfits"
+                    :key="catalogOutfit.id"
+                    class="outfit-card compact"
                   >
-                    <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
-                  </div>
-                </div>
-              </button>
-              <div class="outfit-footer">
-                <button class="outfit-name" type="button" @click="openOutfitDetail(outfit)">{{ outfit.name }}</button>
-                <span>{{ formatDate(outfit.createdAt) }}</span>
-                <div class="preview-actions">
-                  <button class="icon-action subtle" type="button" title="收藏搭配" @click="toggleOutfitFavorite(outfit)"><Heart :class="{ filled: outfit.favorite }" /></button>
-                  <button class="icon-action subtle" type="button" title="复制搭配" @click="duplicateOutfit(outfit)"><Copy /></button>
-                  <button class="icon-action subtle" type="button" title="删除搭配" @click="deleteOutfit(outfit)"><Trash2 /></button>
+                    <button class="outfit-preview" type="button" @click="openOutfitDetail(catalogOutfit)">
+                      <div class="outfit-layout-preview compact" :style="{ background: catalogOutfit.background || '#fff' }">
+                        <div
+                          v-for="layer in outfitDisplayLayers(catalogOutfit)"
+                          :key="`${catalogOutfit.id}-${layer.itemId}`"
+                          class="layout-item"
+                          :style="layerStyle(layer)"
+                        >
+                          <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
+                        </div>
+                      </div>
+                    </button>
+                    <div class="outfit-footer">
+                      <strong>{{ catalogOutfit.name }}</strong>
+                      <span>{{ formatDate(catalogOutfit.createdAt) }}</span>
+                      <div class="preview-actions">
+                        <button class="icon-action subtle" type="button" title="编辑布局" aria-label="编辑布局" @click="editOutfitLayout(catalogOutfit)"><PenLine /></button>
+                        <button class="icon-action subtle" type="button" title="收藏搭配" aria-label="收藏搭配" @click="toggleOutfitFavorite(catalogOutfit)"><Heart :class="{ filled: catalogOutfit.favorite }" /></button>
+                        <button class="icon-action subtle" type="button" title="复制搭配" aria-label="复制搭配" @click="duplicateOutfit(catalogOutfit)"><Copy /></button>
+                        <button class="icon-action subtle" type="button" title="删除搭配" aria-label="删除搭配" @click="deleteOutfit(catalogOutfit)"><Trash2 /></button>
+                      </div>
+                    </div>
+                  </article>
+                  <p v-if="!filteredOutfits.length" class="guide-text">这个分类还没有搭配。</p>
                 </div>
               </div>
-            </article>
           </section>
         </template>
       </section>
@@ -366,11 +382,11 @@
         <div v-if="detailItem" class="sheet-backdrop" @click="discardDetail">
           <section class="sheet" @click.stop>
           <header class="detail-topbar">
-            <button class="secondary-action" type="button" @click="discardDetail"><X />取消</button>
-            <strong class="detail-name">{{ detailItem.name }}</strong>
-            <button class="primary-action compact" type="button" :disabled="saving" @click="recordCurrentItemForPendingDate">
-              {{ pendingWearDate ? '补录保存' : '保存' }}
-            </button>
+          <button class="icon-close" type="button" title="取消" aria-label="取消" @click="discardDetail"><X /></button>
+            <input v-model.trim="detailItem.name" class="detail-name-input" type="text" />
+          <button class="icon-action primary" type="button" :title="pendingWearDate ? '补录保存' : '保存'" :aria-label="pendingWearDate ? '补录保存' : '保存'" :disabled="saving" @click="recordCurrentItemForPendingDate">
+            <Check />
+          </button>
           </header>
         <div v-if="detailItem.images.length" class="carousel">
           <img :src="detailImages[detailCarouselIndex]" alt="" />
@@ -414,7 +430,10 @@
           <input type="file" accept="image/*" multiple @change="addDetailImages" />
           <span><ImagePlus />添加正面 / 背面 / 细节图</span>
         </label>
-        <button class="primary-action image-save" type="button" :disabled="saving" @click="saveDetail">保存图片与资料修改</button>
+        <div class="detail-actions image-save-wrap">
+          <button class="icon-action primary large" type="button" :title="pendingWearDate ? '补录保存' : '保存'" :aria-label="pendingWearDate ? '补录保存' : '保存'" :disabled="saving" @click="saveDetail"><Check /></button>
+          <span class="action-label">保存图片与资料修改</span>
+        </div>
         <div class="detail-grid">
           <div class="detail-fields">
             <label><span>名称</span><input v-model.trim="detailItem.name" class="input" type="text" /></label>
@@ -477,11 +496,9 @@
     <div v-if="detailOutfit" class="sheet-backdrop" @click="closeOutfitDetail">
       <section class="sheet" @click.stop>
         <header class="detail-topbar">
-          <button class="secondary-action" type="button" @click="closeOutfitDetail"><X />关闭</button>
-          <strong class="detail-name">{{ detailOutfit.name }}</strong>
-          <button class="primary-action compact" type="button" :disabled="savingOutfitDetail" @click="saveOutfitDetail">
-            {{ savingOutfitDetail ? '保存中' : '保存' }}
-          </button>
+          <button class="icon-close" type="button" title="关闭" aria-label="关闭" @click="closeOutfitDetail"><X /></button>
+          <input v-model.trim="detailOutfit.name" class="detail-name-input" type="text" />
+          <button class="icon-action primary" type="button" title="保存" aria-label="保存" :disabled="savingOutfitDetail" @click="saveOutfitDetail"><Check /></button>
         </header>
         <div class="choice-grid">
           <div
@@ -529,13 +546,18 @@
           <input v-model="outfitRecordDate" class="input" type="date" />
         </label>
         <div class="detail-actions">
-          <button class="primary-action" type="button" @click="exportDetailOutfitImage">导出搭配图</button>
+          <button class="icon-action primary large" type="button" title="导出搭配图" aria-label="导出搭配图" @click="exportDetailOutfitImage"><Download /></button>
+          <span class="action-label">导出搭配图</span>
         </div>
         <div class="detail-actions">
-          <button class="primary-action" type="button" @click="logOutfitDetailDate">
-            {{ outfitRecordDate === todayKey() ? '记录今天穿着' : `补录到 ${formatChineseDate(outfitRecordDate)}` }}
+          <button class="icon-action primary large" type="button" :title="outfitRecordDate === todayKey() ? '记录今天穿着' : '补录穿着'" :aria-label="`补录到 ${formatChineseDate(outfitRecordDate)}`" @click="logOutfitDetailDate">
+            <CalendarCheck />
           </button>
-          <button class="danger-action" type="button" @click="deleteOutfit(detailOutfit)">删除搭配</button>
+          <span class="action-label">{{ outfitRecordDate === todayKey() ? '记录今天穿着' : '补录穿着' }}</span>
+        </div>
+        <div class="detail-actions">
+          <button class="icon-action danger large" type="button" title="删除搭配" aria-label="删除搭配" @click="deleteOutfit(detailOutfit)"><Trash2 /></button>
+          <span class="action-label danger">删除搭配</span>
         </div>
       </section>
     </div>
@@ -543,9 +565,9 @@
     <div v-if="outfitResult" class="sheet-backdrop" @click="closeOutfitResult">
       <section class="sheet result-sheet" @click.stop>
         <header class="detail-topbar">
-          <button class="secondary-action" type="button" @click="closeOutfitResult"><X />返回</button>
+          <button class="icon-close" type="button" title="返回" aria-label="返回" @click="closeOutfitResult"><X /></button>
           <strong class="detail-name">{{ outfitResult.name }}</strong>
-          <button class="primary-action compact" type="button" @click="downloadOutfitResult">下载</button>
+          <button class="icon-action primary" type="button" title="下载" aria-label="下载" @click="downloadOutfitResult"><Download /></button>
         </header>
         <img class="result-image" :src="outfitResult.url" :alt="outfitResult.name" />
         <p class="result-tip">保存成功了。长按图片也可以存到相册。</p>
@@ -559,9 +581,9 @@
     <div v-if="outfitSaveMeta" class="sheet-backdrop" @click="outfitSaveMeta = false">
       <section class="sheet" @click.stop>
         <header class="detail-topbar">
-          <button class="secondary-action" type="button" @click="outfitSaveMeta = false"><X />返回</button>
+          <button class="icon-close" type="button" title="返回" aria-label="返回" @click="outfitSaveMeta = false"><X /></button>
           <strong class="detail-name">搭配信息</strong>
-          <button class="primary-action compact" type="button" :disabled="saving" @click="confirmSaveOutfit">{{ saving ? '保存中' : '保存' }}</button>
+          <button class="icon-action primary" type="button" title="保存" aria-label="保存" :disabled="saving" @click="confirmSaveOutfit"><Check /></button>
         </header>
         <label><span class="field-label">名称</span><input v-model.trim="outfitSaveMeta.name" class="input" type="text" placeholder="例如：通勤黑裤套装" /></label>
         <div class="field-label">场景</div>
@@ -679,7 +701,8 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart,
-  Check, ImagePlus, Layers, Maximize2, Plus, RotateCw, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
+  CalendarCheck,
+  Check, ImagePlus, Layers, Maximize2, PenLine, Plus, RotateCw, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'
@@ -713,6 +736,7 @@ const backupInput = ref(null)
 const outfitDraft = ref(null)
 const canvasRef = ref(null)
 const canvasCategory = ref('all')
+const outfitListCategory = ref('all')
 const selectedLayerId = ref(null)
 const showDraftMeta = ref(false)
 const outfitSaveMeta = ref(null)
@@ -770,6 +794,7 @@ const pageSubtitle = computed(() => ({
 }[activeTab.value]))
 
 const primaryIcon = computed(() => activeTab.value === 'settings' ? Download : Plus)
+const primaryActionLabel = computed(() => activeTab.value === 'settings' ? '下载备份' : '添加')
 
 const activeClothes = computed(() => clothes.value.filter((item) => !item.archived))
 const activeCategoryCounts = computed(() => activeClothes.value.reduce((result, item) => {
@@ -804,6 +829,11 @@ const canvasCounts = computed(() => activeClothes.value.reduce((result, item) =>
 
 const canvasItems = computed(() => activeClothes.value.filter((item) => canvasCategory.value === 'all' || item.category === canvasCategory.value))
 
+const filteredOutfits = computed(() => outfits.value.filter((outfit) => {
+  if (outfitListCategory.value === 'all') return true
+  return outfit.itemIds.some((itemId) => clothesById.value[itemId]?.category === outfitListCategory.value)
+}))
+
 function outfitPreview(outfit) {
   const first = outfit.itemIds?.map((id) => clothesById.value[id]).find((item) => item?.coverImage)
   return first?.coverImage || ''
@@ -818,9 +848,9 @@ function outfitDisplayLayers(outfit) {
   }
   return outfit.itemIds.map((itemId, index) => ({
     itemId,
-    x: index % 2 ? 70 : 34,
-    y: 18 + index * 26,
-    width: 42,
+    x: index % 2 ? 71 : 29,
+    y: index < 2 ? (index === 0 ? 26 : 62) : Math.min(86, 26 + index * 20),
+    width: 46,
     rotation: 0,
     z: index + 1
   }))
@@ -836,6 +866,31 @@ function outfitLayoutLayers(outfit) {
 
 function clearCanvasSelection() {
   selectedLayerId.value = null
+}
+
+function editOutfitLayout(outfit) {
+  if (!clothes.value.length) return
+  const layout = outfit.layout || {}
+  outfitDraft.value = {
+    id: outfit.id,
+    name: outfit.name,
+    seasons: [...(outfit.seasons || [])],
+    itemIds: [...(outfit.itemIds || [])],
+    scene: outfit.scene || '',
+    weather: outfit.weather || '',
+    temperature: outfit.temperature || '',
+    background: outfit.background || '#ffffff',
+    layers: outfit.itemIds.filter((itemId) => layout[String(itemId)]).map((itemId, index) => ({
+      uid: `edit-${outfit.id}-${itemId}`,
+      itemId,
+      src: clothesById.value[itemId]?.coverImage || '',
+      ...layout[String(itemId)]
+    }))
+  }
+  canvasCategory.value = 'all'
+  selectedLayerId.value = null
+  showDraftMeta.value = false
+  outfitMode.value = 'draft'
 }
 
 const groupedClothes = computed(() => CATEGORIES.map((category) => ({
@@ -1170,10 +1225,10 @@ async function confirmSaveOutfit() {
   saveError.value = ''
   try {
     const now = Date.now()
-    const draft = toRaw(outfitDraft.value)
     const meta = toRaw(outfitSaveMeta.value)
     const name = meta.name || `搭配 ${formatDate(now)}`
-    await db.outfits.add({
+    const draft = toRaw(outfitDraft.value)
+    const record = {
       name, seasons: [...meta.seasons], itemIds: [...draft.itemIds],
       scene: meta.scene || '', weather: meta.weather || '', temperature: meta.temperature || '',
       background: draft.background || '#ffffff',
@@ -1182,8 +1237,21 @@ async function confirmSaveOutfit() {
         rotation: layer.rotation, z: layer.z
       }])),
       styleTags: [], note: '', favorite: false, wearCount: 0, createdAt: now, updatedAt: now
-    })
-    const saved = await db.outfits.where('createdAt').equals(now).first()
+    }
+    let saved
+    if (draft.id) {
+      const existing = await db.outfits.get(draft.id)
+      await db.outfits.update(draft.id, {
+        ...record,
+        favorite: existing?.favorite || false,
+        wearCount: existing?.wearCount || 0,
+        createdAt: existing?.createdAt || now
+      })
+      saved = await db.outfits.get(draft.id)
+    } else {
+      await db.outfits.add(record)
+      saved = await db.outfits.where('createdAt').equals(now).first()
+    }
     outfitSaveMeta.value = null
     await refresh()
     if (saved) await openOutfitResult(saved)
@@ -1199,7 +1267,7 @@ async function confirmSaveOutfit() {
 
 async function openOutfitResult(outfit) {
   const source = toRaw(outfit)
-  const blob = await buildOutfitImage(source, clothesById.value)
+    const blob = await buildOutfitImage(source, clothesById.value, source.createdAt)
   outfitResult.value = {
     id: source.id,
     name: source.name,

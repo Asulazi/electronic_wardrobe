@@ -76,7 +76,7 @@ function roundedRect(context, x, y, width, height, radius) {
   context.roundRect(x, y, width, height, radius)
 }
 
-export async function buildOutfitImage(outfit, clothesById) {
+export async function buildOutfitImage(outfit, clothesById, createdAt) {
   const width = 1080
   const height = 1600
   const canvas = document.createElement('canvas')
@@ -99,73 +99,53 @@ export async function buildOutfitImage(outfit, clothesById) {
   ].filter(Boolean).join(' · ')
   context.fillText(meta || '本地衣橱 · 全季', 66, 176)
 
-  const sourceItems = outfit.itemIds.map((id) => clothesById[id]).filter(Boolean)
-  if (!sourceItems.length) throw new Error('搭配里没有可用单品')
-  const items = sortOutfitItems(sourceItems)
-  const primary = items.find((item) => ['dress', 'outerwear', 'top'].includes(item.category)) || items[0]
-  const others = items.filter((item) => item !== primary)
-  const slots = [
-    { x: 110, y: 310, width: 360, height: 520 },
-    { x: 610, y: 310, width: 360, height: 300 },
-    { x: 610, y: 650, width: 360, height: 180 }
-  ]
+  const entries = outfit.itemIds
+    .map((itemId) => [itemId, outfit.layout?.[String(itemId)]])
+    .filter(([, layout]) => layout)
+    .map(([itemId, layout]) => ({ itemId, ...layout }))
+    .sort((left, right) => (left.z || 0) - (right.z || 0))
 
-  if (primary.image) {
-    try {
-      const image = await loadImage(primary.image)
-      context.fillStyle = '#fff'
-      roundedRect(context, slots[0].x, slots[0].y, slots[0].width, slots[0].height, 26)
-      context.fill()
-      const scale = Math.min((slots[0].width - 30) / image.width, (slots[0].height - 30) / image.height)
-      const drawWidth = image.width * scale
-      const drawHeight = image.height * scale
-      context.drawImage(
-        image,
-        slots[0].x + (slots[0].width - drawWidth) / 2,
-        slots[0].y + (slots[0].height - drawHeight) / 2,
-        drawWidth,
-        drawHeight
-      )
-    } catch {
-      drawBodyFigure(context, slots[0].x, slots[0].y, slots[0].width, slots[0].height)
-    }
-  } else {
-    drawBodyFigure(context, slots[0].x, slots[0].y, slots[0].width, slots[0].height)
-  }
-  drawBadge(context, LAYER_ORDER.find((layer) => layer.key === primary.category)?.label || categoryLabel(primary.category), slots[0].x + 16, slots[0].y + 16)
-
-  for (const [index, item] of others.slice(0, 2).entries()) {
-    const slot = slots[index + 1]
-    context.fillStyle = '#fff'
-    roundedRect(context, slot.x, slot.y, slot.width, slot.height, 24)
-    context.fill()
-    if (item.image) {
+  if (entries.length) {
+    for (const entry of entries) {
+      const item = clothesById[entry.itemId]
+      if (!item?.image) continue
       try {
         const image = await loadImage(item.image)
-        const scale = Math.min((slot.width - 26) / image.width, (slot.height - 26) / image.height)
-        const drawWidth = image.width * scale
-        const drawHeight = image.height * scale
-        context.drawImage(image, slot.x + (slot.width - drawWidth) / 2, slot.y + (slot.height - drawHeight) / 2, drawWidth, drawHeight)
-      } catch {
-        context.fillStyle = '#99948c'
-        context.font = '24px -apple-system, PingFang SC, sans-serif'
-        context.fillText(item.name, slot.x + 18, slot.y + slot.height / 2)
-      }
-    } else {
-      context.fillStyle = '#99948c'
-      context.font = '24px -apple-system, PingFang SC, sans-serif'
-      context.fillText(item.name || categoryLabel(item.category), slot.x + 18, slot.y + slot.height / 2)
+        const left = entry.x / 100 * width - entry.width / 100 * width / 2
+        const top = entry.y / 100 * height - entry.width / 100 * width / 2
+        const size = entry.width / 100 * width
+        context.save()
+        context.translate(left + size / 2, top + size / 2)
+        context.rotate((entry.rotation || 0) * Math.PI / 180)
+        context.drawImage(image, -size / 2, -size / 2, size, size)
+        context.restore()
+      } catch {}
     }
-    drawBadge(context, LAYER_ORDER.find((layer) => layer.key === item.category)?.label || categoryLabel(item.category), slot.x + 14, slot.y + 14)
+  } else {
+    const sourceItems = outfit.itemIds.map((id) => clothesById[id]).filter(Boolean)
+    if (!sourceItems.length) throw new Error('搭配里没有可用单品')
+    const items = sortOutfitItems(sourceItems)
+    drawBodyFigure(context, 90, 330, width - 180, 850)
+    for (const [index, item] of items.entries()) {
+      if (!item.image) continue
+      try {
+        const image = await loadImage(item.image)
+        context.drawImage(image, 250 + (index % 2) * 230, 430 + Math.floor(index / 2) * 320, 210, 210)
+      } catch {}
+    }
   }
 
+  const created = new Date(createdAt || outfit.createdAt || Date.now())
+  const createdText = `${created.getFullYear()}.${String(created.getMonth() + 1).padStart(2, '0')}.${String(created.getDate()).padStart(2, '0')}`
+  const summary = outfit.itemIds.map((id) => clothesById[id]).filter(Boolean).map((item) => categoryLabel(item.category)).join(' · ')
   context.fillStyle = '#666058'
   context.font = '24px -apple-system, PingFang SC, sans-serif'
-  const summary = items.map((item) => categoryLabel(item.category)).join(' · ')
-  context.fillText(summary, 66, 1290)
+  context.textAlign = 'right'
+  context.fillText(summary || '本地衣橱', width - 64, height - 102)
   context.fillStyle = '#8b8177'
   context.font = '22px -apple-system, PingFang SC, sans-serif'
-  context.fillText(`共 ${items.length} 件 · 本地衣橱生成`, 66, 1332)
+  context.fillText(`${createdText} · 共 ${outfit.itemIds.length} 件 · 本地衣橱生成`, width - 64, height - 64)
+  context.textAlign = 'left'
 
   return await new Promise((resolve, reject) => canvas.toBlob(
     (result) => result ? resolve(result) : reject(new Error('图片生成失败')),
@@ -175,7 +155,7 @@ export async function buildOutfitImage(outfit, clothesById) {
 }
 
 export async function exportOutfitImage(outfit, clothesById) {
-  const blob = await buildOutfitImage(outfit, clothesById)
+  const blob = await buildOutfitImage(outfit, clothesById, outfit.createdAt)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
