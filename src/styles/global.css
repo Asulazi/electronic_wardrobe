@@ -1222,12 +1222,12 @@ button { touch-action: manipulation; }
 .outfit-preview-preview {
   display: grid;
   justify-items: center;
-  margin-bottom: 14px;
+  margin: 2px 0 14px;
 }
 
 .outfit-detail-preview {
   display: block;
-  width: min(100%, 280px);
+  width: min(72%, 236px);
   border: 0;
   padding: 0;
   background: transparent;
@@ -1246,6 +1246,39 @@ button { touch-action: manipulation; }
   border-radius: 10px;
 }
 .image-save-wrap { margin-top: 12px; }
+
+.outfit-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.primary-action.has-leading-icon.compact,
+.danger-action.has-leading-icon.compact {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 6px;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.primary-action.has-leading-icon.compact svg,
+.danger-action.has-leading-icon.compact svg { width: 17px; height: 17px; flex: 0 0 auto; }
+
+.primary-action.has-leading-icon.compact span,
+.danger-action.has-leading-icon.compact span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-stats.compact { margin: 10px 0 8px; }
+.date-record-row.compact { margin-bottom: 0; }
+
+.sheet .season-picker { gap: 7px; }
+.sheet .season-picker .season { min-height: 40px; font-size: 14px; }
+.sheet .tag-picker .tag { min-height: 38px; font-size: 13px; }
 
 .detail-name-input {
   min-width: 0;

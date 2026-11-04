@@ -347,7 +347,7 @@
         </section>
         <section class="panel">
           <header class="panel-header"><div><span class="kicker">数据安全</span><h2>备份与恢复</h2></div></header>
-          <p class="guide-text">导出包含衣服、搭配、穿着记录和图片的 JSON 备份。导入会覆盖当前数据。</p>
+          <p class="guide-text">导出包含衣服、搭配、穿着记录和图片的完整备份包。导入会覆盖当前数据。</p>
           <button class="primary-action" type="button" :disabled="backupBusy" @click="handleExport">{{ backupBusy ? '处理中' : '导出备份' }}</button>
           <button class="secondary-action full" type="button" @click="backupInput?.click()">导入备份</button>
           <p v-if="backupMessage" class="backup-message">{{ backupMessage }}</p>
@@ -437,10 +437,6 @@
           <input type="file" accept="image/*" multiple @change="addDetailImages" />
           <span><ImagePlus />添加正面 / 背面 / 细节图</span>
         </label>
-        <div class="detail-actions image-save-wrap">
-          <button class="icon-action primary large" type="button" :title="pendingWearDate ? '补录保存' : '保存'" :aria-label="pendingWearDate ? '补录保存' : '保存'" :disabled="saving" @click="saveDetail"><Check /></button>
-          <span class="button-label">保存图片与资料修改</span>
-        </div>
         <div class="detail-grid">
           <div class="detail-fields">
             <label><span>名称</span><input v-model.trim="detailItem.name" class="input" type="text" /></label>
@@ -550,19 +546,15 @@
         <div class="season-picker">
           <button v-for="season in SEASONS" :key="season.value" type="button" class="season" :class="{ active: detailOutfit.seasons.includes(season.value) }" @click="toggleDetailOutfitSeason(season.value)">{{ season.label }}</button>
         </div>
-        <div class="detail-stats"><span>穿过 {{ detailOutfit.wearCount || 0 }} 次</span></div>
-        <label class="date-record-row">
+        <div class="detail-stats compact"><span>穿过 {{ detailOutfit.wearCount || 0 }} 次</span></div>
+        <label class="date-record-row compact">
           <span>记录日期</span>
           <input v-model="outfitRecordDate" class="input" type="date" />
         </label>
-        <div class="detail-actions">
-          <button class="primary-action has-leading-icon" type="button" @click="exportDetailOutfitImage"><Download /><span>导出搭配图</span></button>
-        </div>
-        <div class="detail-actions">
-          <button class="primary-action has-leading-icon" type="button" :aria-label="`补录到 ${formatChineseDate(outfitRecordDate)}`" @click="logOutfitDetailDate"><CalendarCheck /><span>{{ outfitRecordDate === todayKey() ? '记录今天穿着' : '补录穿着' }}</span></button>
-        </div>
-        <div class="detail-actions">
-          <button class="danger-action has-leading-icon" type="button" @click="deleteOutfit(detailOutfit)"><Trash2 /><span>删除搭配</span></button>
+        <div class="outfit-actions">
+          <button class="primary-action has-leading-icon compact" type="button" @click="exportDetailOutfitImage"><Download /><span>导出图</span></button>
+          <button class="primary-action has-leading-icon compact" type="button" :aria-label="`补录到 ${formatChineseDate(outfitRecordDate)}`" @click="logOutfitDetailDate"><CalendarCheck /><span>{{ outfitRecordDate === todayKey() ? '记录穿着' : '补录穿着' }}</span></button>
+          <button class="danger-action has-leading-icon compact" type="button" @click="deleteOutfit(detailOutfit)"><Trash2 /><span>删除</span></button>
         </div>
       </section>
     </div>
@@ -687,7 +679,7 @@
     </div>
 
     <input ref="fileInput" class="hidden-input" type="file" accept="image/*" multiple @change="handleFiles" />
-    <input ref="backupInput" class="hidden-input" type="file" accept="application/json,.json" @change="handleBackupImport" />
+    <input ref="backupInput" class="hidden-input" type="file" accept=".ewbackup,application/json,.json" @change="handleBackupImport" />
     <input ref="excelInput" class="hidden-input" type="file" accept=".xlsx,.xls,.csv" @change="handleExcelImport" />
 
     <button v-if="activeTab !== 'settings' && outfitMode !== 'draft'" class="floating-add" type="button" @click="handleCenterAdd"><Plus /></button>

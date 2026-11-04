@@ -2,11 +2,11 @@ import { db } from './db'
 import { dataUrlFromImage } from './images'
 
 function downloadJson(payload) {
-  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `electronic_wardrobe_backup_${new Date().toISOString().slice(0, 10)}.json`
+  link.download = `electronic_wardrobe_backup_${new Date().toISOString().slice(0, 10)}.ewbackup`
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

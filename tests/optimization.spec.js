@@ -134,7 +134,7 @@ test('搭配详情使用中文季节并生成成套标注海报', async ({ page 
   await page.getByRole('button', { name: '搭配册' }).click()
   await page.locator('.outfit-preview').first().click()
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: '导出搭配图' }).click()
+  await page.getByRole('button', { name: '导出图' }).click()
   const file = await download
   expect(await file.suggestedFilename()).toContain('搭配 2026')
   await expect(page.locator('.season-picker')).toContainText('夏')

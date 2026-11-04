@@ -76,6 +76,13 @@ function roundedRect(context, x, y, width, height, radius) {
   context.roundRect(x, y, width, height, radius)
 }
 
+function drawContainImage(context, image, left, top, size) {
+  const scale = Math.min(size / image.width, size / image.height)
+  const width = image.width * scale
+  const height = image.height * scale
+  context.drawImage(image, left + (size - width) / 2, top + (size - height) / 2, width, height)
+}
+
 export async function buildOutfitImage(outfit, clothesById, createdAt) {
   const width = 1080
   const height = 1600
@@ -108,16 +115,16 @@ export async function buildOutfitImage(outfit, clothesById, createdAt) {
   if (entries.length) {
     for (const entry of entries) {
       const item = clothesById[entry.itemId]
-      if (!item?.image) continue
+      if (!item?.coverImage && !item?.image) continue
       try {
-        const image = await loadImage(item.image)
         const left = entry.x / 100 * width - entry.width / 100 * width / 2
         const top = entry.y / 100 * height - entry.width / 100 * width / 2
         const size = entry.width / 100 * width
+        const image = await loadImage(item.coverImage || item.image)
         context.save()
         context.translate(left + size / 2, top + size / 2)
         context.rotate((entry.rotation || 0) * Math.PI / 180)
-        context.drawImage(image, -size / 2, -size / 2, size, size)
+        drawContainImage(context, image, -size / 2, -size / 2, size)
         context.restore()
       } catch {}
     }
@@ -129,8 +136,8 @@ export async function buildOutfitImage(outfit, clothesById, createdAt) {
     for (const [index, item] of items.entries()) {
       if (!item.image) continue
       try {
-        const image = await loadImage(item.image)
-        context.drawImage(image, 250 + (index % 2) * 230, 430 + Math.floor(index / 2) * 320, 210, 210)
+        const image = await loadImage(item.coverImage || item.image)
+        drawContainImage(context, image, 250 + (index % 2) * 230, 430 + Math.floor(index / 2) * 320, 210)
       } catch {}
     }
   }
