@@ -263,8 +263,15 @@
             <button class="primary-action" type="button" @click="startOutfit">创建搭配</button>
           </section>
           <section v-else class="outfit-list">
-            <div class="outfit-catalog">
+        <div class="outfit-catalog">
                 <aside class="outfit-sidebar">
+                  <button
+                    v-if="favoriteOutfits.length"
+                    type="button"
+                    class="favorite-filter"
+                    :class="{ active: outfitListCategory === 'favorites' }"
+                    @click="outfitListCategory = 'favorites'"
+                  ><Heart /><span>收藏</span></button>
                   <button
                     v-for="category in CANVAS_CATEGORIES"
                     :key="category.value"
@@ -296,13 +303,13 @@
                       <span>{{ formatDate(catalogOutfit.createdAt) }}</span>
                       <div class="preview-actions">
                         <button class="icon-action subtle" type="button" title="编辑布局" aria-label="编辑布局" @click="editOutfitLayout(catalogOutfit)"><PenLine /></button>
-                        <button class="icon-action subtle" type="button" title="收藏搭配" aria-label="收藏搭配" @click="toggleOutfitFavorite(catalogOutfit)"><Heart :class="{ filled: catalogOutfit.favorite }" /></button>
+                        <button class="icon-action subtle favorite" :class="{ selected: catalogOutfit.favorite }" type="button" title="收藏搭配" aria-label="收藏搭配" @click="toggleOutfitFavorite(catalogOutfit)"><Heart :class="{ filled: catalogOutfit.favorite }" /></button>
                         <button class="icon-action subtle" type="button" title="复制搭配" aria-label="复制搭配" @click="duplicateOutfit(catalogOutfit)"><Copy /></button>
                         <button class="icon-action subtle" type="button" title="删除搭配" aria-label="删除搭配" @click="deleteOutfit(catalogOutfit)"><Trash2 /></button>
                       </div>
                     </div>
                   </article>
-                  <p v-if="!filteredOutfits.length" class="guide-text">这个分类还没有搭配。</p>
+                  <p v-if="!filteredOutfits.length" class="guide-text empty-category">这个分类还没有搭配。</p>
                 </div>
               </div>
           </section>
@@ -432,7 +439,7 @@
         </label>
         <div class="detail-actions image-save-wrap">
           <button class="icon-action primary large" type="button" :title="pendingWearDate ? '补录保存' : '保存'" :aria-label="pendingWearDate ? '补录保存' : '保存'" :disabled="saving" @click="saveDetail"><Check /></button>
-          <span class="action-label">保存图片与资料修改</span>
+          <span class="button-label">保存图片与资料修改</span>
         </div>
         <div class="detail-grid">
           <div class="detail-fields">
@@ -500,27 +507,31 @@
           <input v-model.trim="detailOutfit.name" class="detail-name-input" type="text" />
           <button class="icon-action primary" type="button" title="保存" aria-label="保存" :disabled="savingOutfitDetail" @click="saveOutfitDetail"><Check /></button>
         </header>
-        <div class="choice-grid">
-          <div
+          <button
             v-if="detailOutfit.itemIds.some((itemId) => detailOutfit.layout?.[String(itemId)])"
-            class="outfit-layout-preview"
-            :style="{ background: detailOutfit.background || '#fff' }"
+            class="outfit-detail-preview"
+            type="button"
+            title="编辑搭配布局"
+            aria-label="编辑搭配布局"
+            @click="editOutfitLayout(detailOutfit)"
           >
-            <div
-              v-for="layer in outfitLayoutLayers(detailOutfit)"
-              :key="layer.itemId"
-              class="layout-item"
-              :style="{
-                left: `${layer.x}%`,
-                top: `${layer.y}%`,
-                width: `${layer.width}%`,
-                transform: `translate(-50%, -50%) rotate(${layer.rotation}deg)`,
-                zIndex: layer.z
-              }"
-            >
-              <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
+            <div class="outfit-layout-preview" :style="{ background: detailOutfit.background || '#fff' }">
+              <div
+                v-for="layer in outfitLayoutLayers(detailOutfit)"
+                :key="layer.itemId"
+                class="layout-item"
+                :style="{
+                  left: `${layer.x}%`,
+                  top: `${layer.y}%`,
+                  width: `${layer.width}%`,
+                  transform: `translate(-50%, -50%) rotate(${layer.rotation}deg)`,
+                  zIndex: layer.z
+                }"
+              >
+                <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
+              </div>
             </div>
-          </div>
+          </button>
           <div v-else class="choice-grid">
             <div v-for="itemId in detailOutfit.itemIds" :key="itemId" class="choice static">
               <img v-if="clothesById[itemId]?.coverImage" :src="clothesById[itemId].coverImage" alt="" />
@@ -528,7 +539,6 @@
               <span>{{ clothesById[itemId]?.name || '已删除' }}</span>
             </div>
           </div>
-        </div>
         <div class="field-label">场景</div>
         <div class="tag-picker">
           <button v-for="scene in SCENES" :key="scene" type="button" class="tag" :class="{ active: detailOutfit.scene === scene }" @click="detailOutfit.scene = detailOutfit.scene === scene ? '' : scene">{{ scene }}</button>
@@ -546,18 +556,13 @@
           <input v-model="outfitRecordDate" class="input" type="date" />
         </label>
         <div class="detail-actions">
-          <button class="icon-action primary large" type="button" title="导出搭配图" aria-label="导出搭配图" @click="exportDetailOutfitImage"><Download /></button>
-          <span class="action-label">导出搭配图</span>
+          <button class="primary-action has-leading-icon" type="button" @click="exportDetailOutfitImage"><Download /><span>导出搭配图</span></button>
         </div>
         <div class="detail-actions">
-          <button class="icon-action primary large" type="button" :title="outfitRecordDate === todayKey() ? '记录今天穿着' : '补录穿着'" :aria-label="`补录到 ${formatChineseDate(outfitRecordDate)}`" @click="logOutfitDetailDate">
-            <CalendarCheck />
-          </button>
-          <span class="action-label">{{ outfitRecordDate === todayKey() ? '记录今天穿着' : '补录穿着' }}</span>
+          <button class="primary-action has-leading-icon" type="button" :aria-label="`补录到 ${formatChineseDate(outfitRecordDate)}`" @click="logOutfitDetailDate"><CalendarCheck /><span>{{ outfitRecordDate === todayKey() ? '记录今天穿着' : '补录穿着' }}</span></button>
         </div>
         <div class="detail-actions">
-          <button class="icon-action danger large" type="button" title="删除搭配" aria-label="删除搭配" @click="deleteOutfit(detailOutfit)"><Trash2 /></button>
-          <span class="action-label danger">删除搭配</span>
+          <button class="danger-action has-leading-icon" type="button" @click="deleteOutfit(detailOutfit)"><Trash2 /><span>删除搭配</span></button>
         </div>
       </section>
     </div>
@@ -698,6 +703,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, toRaw } from 'vue'
+import { watch } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart,
@@ -769,6 +775,10 @@ const now = new Date()
 const calendarYear = ref(now.getFullYear())
 const calendarMonth = ref(now.getMonth())
 const settings = reactive({ hideArchived: true, defaultGrid: true, showPrice: true })
+const anySheetOpen = computed(() => Boolean(detailItem.value || detailOutfit.value || outfitResult.value || outfitSaveMeta.value || dateLog.value))
+watch(anySheetOpen, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+})
 
 const viewModes = [
   { value: 'grid', label: '网格' },
@@ -831,8 +841,10 @@ const canvasItems = computed(() => activeClothes.value.filter((item) => canvasCa
 
 const filteredOutfits = computed(() => outfits.value.filter((outfit) => {
   if (outfitListCategory.value === 'all') return true
+  if (outfitListCategory.value === 'favorites') return Boolean(outfit.favorite)
   return outfit.itemIds.some((itemId) => clothesById.value[itemId]?.category === outfitListCategory.value)
 }))
+const favoriteOutfits = computed(() => outfits.value.filter((outfit) => outfit.favorite))
 
 function outfitPreview(outfit) {
   const first = outfit.itemIds?.map((id) => clothesById.value[id]).find((item) => item?.coverImage)
