@@ -51,7 +51,10 @@
           </header>
           <div v-if="batchStatus" class="progress-track"><div class="progress-bar"></div></div>
           <article v-for="item in stagedItems" :key="item.key" class="import-card">
-            <div class="preview"><img :src="item.workUrl" alt="" /><span class="state">{{ item.error ? '失败' : item.processed ? '已抠图' : processingId === item.key ? '处理中' : '原图' }}</span></div>
+            <button class="preview" type="button" title="查看大图" aria-label="查看大图" @click="openStagedPreview(item)">
+              <img :src="item.workUrl" alt="" />
+              <span class="state">{{ item.error ? '失败' : item.processed ? '已抠图' : processingId === item.key ? '处理中' : '原图' }}</span>
+            </button>
             <div class="import-fields">
               <input v-model.trim="item.name" class="input" type="text" placeholder="单品名称" />
               <select v-model="item.category" class="input select">
@@ -385,6 +388,13 @@
         </section>
       </section>
     </main>
+
+    <div v-if="stagedPreview" class="lightbox-backdrop" @click="stagedPreview = null">
+      <figure class="lightbox" @click.stop>
+        <button class="icon-action subtle lightbox-close" type="button" title="关闭" aria-label="关闭" @click="stagedPreview = null"><X /></button>
+        <img :src="stagedPreview.workUrl" alt="" />
+      </figure>
+    </div>
 
         <div v-if="detailItem" class="sheet-backdrop" @click="discardDetail">
           <section class="sheet" @click.stop>
@@ -750,6 +760,7 @@ const detailItem = ref(null)
 const detailImageIndex = ref(0)
 const detailOutfit = ref(null)
 const dateLog = ref(null)
+const stagedPreview = ref(null)
 const newTag = ref('')
 const replaceInput = ref(null)
 const bulkBrand = ref('')
@@ -947,12 +958,17 @@ function openImport() { fileInput.value?.click() }
 
 function clearImport() {
   stagedItems.value.forEach((item) => URL.revokeObjectURL(item.workUrl))
+  stagedPreview.value = null
   stagedItems.value = []
   batchStatus.value = ''
   saveError.value = ''
   bulkBrand.value = ''
   bulkPrice.value = null
   if (fileInput.value) fileInput.value.value = ''
+}
+
+function openStagedPreview(item) {
+  stagedPreview.value = item
 }
 
 function handleCenterAdd() {

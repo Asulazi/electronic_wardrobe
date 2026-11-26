@@ -217,6 +217,18 @@ test('弹层不模糊锁滚动，搭配收藏可筛选', async ({ page }) => {
   await expect(page.locator('.outfit-card.compact .outfit-footer strong')).toHaveText('收藏套装')
 })
 
+test('待入库大图预览支持长按保存', async ({ page }) => {
+  await addGeneratedImages(page, ['#4a69bd'], ['blue.png'])
+  await expect(page.locator('.import-panel')).toContainText('待入库 1 件')
+  await page.locator('.preview').click()
+  await expect(page.locator('.lightbox img')).toBeVisible()
+  await expect.poll(async () => page.locator('.lightbox img').evaluate((node) => node.naturalWidth)).toBeGreaterThan(0)
+  const src = await page.locator('.lightbox img').getAttribute('src')
+  expect(src).toMatch(/^blob:/)
+  await page.locator('.lightbox-close').click()
+  await expect(page.locator('.lightbox')).toHaveCount(0)
+})
+
 test('移动端导航、悬浮按钮和横向布局', async ({ page }) => {
   await addGeneratedImages(page, ['#4a69bd'], ['blue.png'])
   await page.getByRole('button', { name: '入库 1 件' }).click()
