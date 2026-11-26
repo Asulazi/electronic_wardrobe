@@ -178,7 +178,7 @@ test('DIY画布支持分类选衣、拖动缩放和布局保存', async ({ page 
   await expect(page.locator('.sheet')).toHaveCount(1)
   await page.locator('.detail-topbar').getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.locator('.sheet')).toHaveCount(0)
-  await page.locator('.outfit-card-tools').getByRole('button', { name: '更多操作' }).click()
+  await page.locator('.outfit-card').getByRole('button', { name: '更多操作' }).click()
   await page.getByRole('button', { name: '编辑布局' }).click()
   await expect(page.locator('.diy-canvas')).toBeVisible()
   await expect(page.locator('.diy-meta')).toHaveCount(0)
@@ -212,7 +212,11 @@ test('弹层不模糊锁滚动，搭配收藏可筛选', async ({ page }) => {
   await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
   await page.locator('.sheet', { hasText: '搭配信息' }).getByRole('button', { name: '保存', exact: true }).click()
   await page.locator('.detail-topbar').getByRole('button', { name: '返回', exact: true }).click()
-  await page.locator('.outfit-card-tools').getByRole('button', { name: /收藏搭配|取消收藏/ }).click()
+  await page.locator('.outfit-card').first().evaluate((node) => {
+    node.scrollIntoView({ block: 'start', behavior: 'instant' })
+    const target = node.querySelector('.favorite-float')
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
+  })
   await expect(page.locator('.outfit-sidebar .favorite-filter')).toBeVisible()
   await page.locator('.mobile-filter-toggle').click()
   await page.locator('.outfit-sidebar .favorite-filter').click()
@@ -229,6 +233,36 @@ test('待入库大图预览支持长按保存', async ({ page }) => {
   expect(src).toMatch(/^blob:/)
   await page.locator('.lightbox-close').click()
   await expect(page.locator('.lightbox')).toHaveCount(0)
+})
+
+test('搭配卡片固定比例并支持批量勾选', async ({ page }) => {
+  await addGeneratedImages(page, ['#4a69bd', '#ccac84'], ['top.png', 'bottom.png'])
+  await page.locator('.import-fields input').first().fill('黑上衣')
+  await page.locator('.import-fields select').first().selectOption('top')
+  await page.locator('.import-fields input').nth(1).fill('米裤子')
+  await page.locator('.import-fields select').nth(1).selectOption('bottom')
+  await page.getByRole('button', { name: '入库 2 件' }).click()
+  await expect(page.locator('.product-card')).toHaveCount(2)
+
+  await page.getByRole('button', { name: '我的搭配' }).click()
+  await page.locator('.create-fab').click()
+  await page.locator('.diy-item').nth(0).click()
+  await page.locator('.diy-item').nth(1).click()
+  await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
+  await page.getByPlaceholder('例如：通勤黑裤套装').fill('批量套装')
+  await page.locator('.sheet', { hasText: '搭配信息' }).getByRole('button', { name: '保存', exact: true }).click()
+  await page.locator('.detail-topbar').getByRole('button', { name: '返回', exact: true }).click()
+
+  const box = await page.locator('.outfit-card').first().boundingBox()
+  expect(box.width).toBeGreaterThan(140)
+  expect(box.height / box.width).toBeCloseTo(1.2, 1)
+  await expect.poll(async () => page.locator('.outfit-image-strip img').first().evaluate((node) => node.naturalWidth)).toBeGreaterThan(0)
+
+  await page.locator('.tool-button', { hasText: '批量管理' }).click()
+  await expect(page.locator('.batch-check')).toHaveCount(1)
+  await page.locator('.outfit-preview').click()
+  await expect(page.locator('.outfit-card.selected')).toHaveCount(1)
+  await expect(page.locator('.batch-bar')).toBeVisible()
 })
 
 test('移动端导航、悬浮按钮和横向布局', async ({ page }) => {
@@ -248,6 +282,7 @@ test('移动端导航、悬浮按钮和横向布局', async ({ page }) => {
   await page.getByRole('button', { name: '取消' }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(430)
 })
+
 
 
 

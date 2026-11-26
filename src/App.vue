@@ -128,13 +128,12 @@
 
       <section v-if="activeTab === 'outfits'" class="view">
         <div v-if="outfitMode !== 'draft'" class="outfit-page-head">
-          <button class="mobile-filter-toggle" type="button" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
           <div class="outfit-tabs">
             <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
             <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
             <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
           </div>
-          <div class="outfit-tools">
+          <div v-if="outfitMode === 'list'" class="outfit-tools">
             <select v-model="outfitSort" class="sort-select" aria-label="排序方式">
               <option value="created">创建时间</option>
               <option value="worn">最近穿着</option>
@@ -142,6 +141,9 @@
             </select>
             <button class="tool-button" type="button" :class="{ active: outfitBatchMode }" @click="toggleOutfitBatchMode">批量管理</button>
           </div>
+        </div>
+        <div v-if="outfitMode === 'list'" class="mobile-tools-row">
+          <button class="mobile-filter-toggle" type="button" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
         </div>
 
         <section v-if="outfitMode === 'suggest'" class="panel">
@@ -311,20 +313,19 @@
                     class="outfit-card compact"
                     :class="{ selected: outfitSelectedIds.includes(catalogOutfit.id) }"
                   >
-                    <button v-if="outfitBatchMode" class="batch-check" type="button" :aria-label="outfitSelectedIds.includes(catalogOutfit.id) ? '取消选择' : '选择搭配'" @click="toggleOutfitSelected(catalogOutfit.id)">
+                    <button v-if="outfitBatchMode" class="batch-check" type="button" :aria-label="outfitSelectedIds.includes(catalogOutfit.id) ? '取消选择' : '选择搭配'" @click.stop="toggleOutfitSelected(catalogOutfit.id)">
                       <Check v-if="outfitSelectedIds.includes(catalogOutfit.id)" />
                     </button>
-                    <button class="outfit-preview" type="button" @click="openOutfitDetail(catalogOutfit)">
-                      <div class="outfit-layout-preview compact" :style="{ background: catalogOutfit.background || '#fff' }">
-                        <div
-                          v-for="layer in outfitDisplayLayers(catalogOutfit)"
-                          :key="`${catalogOutfit.id}-${layer.itemId}`"
-                          class="layout-item"
-                          :style="layerStyle(layer)"
-                        >
-                          <img v-if="clothesById[layer.itemId]?.coverImage" :src="clothesById[layer.itemId].coverImage" alt="" />
-                        </div>
-                      </div>
+                    <button class="outfit-preview" type="button" :aria-label="outfitBatchMode ? '选择搭配' : '查看搭配'" @click="handleOutfitCardClick(catalogOutfit)">
+                      <span class="outfit-image-strip">
+                        <span v-for="itemId in catalogOutfit.itemIds" :key="`${catalogOutfit.id}-${itemId}`" class="outfit-image-cell">
+                          <img v-if="clothesById[itemId]?.coverImage" :src="clothesById[itemId].coverImage" alt="" />
+                          <Shirt v-else />
+                        </span>
+                      </span>
+                    </button>
+                    <button class="favorite-float" type="button" :aria-label="catalogOutfit.favorite ? '取消收藏' : '收藏搭配'" @click.stop="toggleOutfitFavorite(catalogOutfit)">
+                      <Heart :class="{ filled: catalogOutfit.favorite }" />
                     </button>
                     <div class="outfit-footer">
                       <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
@@ -334,12 +335,7 @@
                         <span v-if="catalogOutfit.scheduledAt" class="soft-tag accent">本周安排</span>
                       </div>
                       <span class="wear-meta">上次 {{ formatDate(catalogOutfit.lastWornAt) }} · 穿过 {{ catalogOutfit.wearCount || 0 }} 次</span>
-                      <div class="outfit-card-tools">
-                        <button class="favorite-float" type="button" :aria-label="catalogOutfit.favorite ? '取消收藏' : '收藏搭配'" @click="toggleOutfitFavorite(catalogOutfit)">
-                          <Heart :class="{ filled: catalogOutfit.favorite }" />
-                        </button>
-                        <button class="more-button" type="button" aria-label="更多操作" @click="openOutfitMenu(catalogOutfit)"><MoreHorizontal /></button>
-                      </div>
+                      <button class="more-button" type="button" aria-label="更多操作" @click.stop="openOutfitMenu(catalogOutfit)"><MoreHorizontal /></button>
                     </div>
                   </article>
                   <p v-if="!sortedOutfits.length" class="guide-text empty-category">这个分类还没有搭配。</p>
@@ -937,11 +933,10 @@ const canvasItems = computed(() => activeClothes.value.filter((item) => canvasCa
 
 const filteredOutfits = computed(() => outfits.value.filter((outfit) => {
   const keyword = outfitSearch.value.toLowerCase()
-  if (outfitListCategory.value === 'all') return true
-  if (outfitListCategory.value === 'favorites') return Boolean(outfit.favorite)
-  const categoryOk = outfit.itemIds.some((itemId) => clothesById.value[itemId]?.category === outfitListCategory.value)
-  if (!keyword) return categoryOk
   const text = [outfit.name, ...(outfit.styleTags || [])].join(' ').toLowerCase()
+  if (!keyword && outfitListCategory.value === 'all') return true
+  if (outfitListCategory.value === 'favorites') return Boolean(outfit.favorite) && text.includes(keyword)
+  const categoryOk = outfit.itemIds.some((itemId) => clothesById.value[itemId]?.category === outfitListCategory.value)
   return categoryOk && text.includes(keyword)
 }))
 
@@ -1088,6 +1083,14 @@ function toggleOutfitSelected(id) {
 
 function openOutfitMenu(outfit) {
   outfitMenu.value = outfit
+}
+
+function handleOutfitCardClick(outfit) {
+  if (outfitBatchMode.value) {
+    toggleOutfitSelected(outfit.id)
+    return
+  }
+  openOutfitDetail(outfit)
 }
 
 function renameOutfit(outfit) {
