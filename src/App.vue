@@ -127,23 +127,25 @@
       </section>
 
       <section v-if="activeTab === 'outfits'" class="view">
-        <div v-if="outfitMode === 'list'" class="outfit-page-head">
-          <button class="mobile-filter-toggle" type="button" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
+        <div v-if="outfitMode !== 'draft'" class="outfit-toolbar">
+          <button class="mobile-filter-toggle" type="button" aria-label="打开分类筛选" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
+          <div class="outfit-tabs" aria-label="搭配页视图">
+            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
+            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
+            <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
+          </div>
           <div class="outfit-tools">
             <select v-model="outfitSort" class="sort-select" aria-label="排序方式">
               <option value="created">创建时间</option>
               <option value="worn">最近穿着</option>
               <option value="frequency">穿着频次</option>
             </select>
-            <button class="tool-button" type="button" :class="{ active: outfitBatchMode }" @click="toggleOutfitBatchMode">批量管理</button>
+            <button class="tool-button" type="button" :class="{ active: outfitBatchMode }" :aria-pressed="outfitBatchMode" @click="toggleOutfitBatchMode">批量管理</button>
           </div>
         </div>
-        <div v-if="outfitMode !== 'draft'" class="outfit-page-head">
-          <div class="outfit-tabs">
-            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
-            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
-            <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
-          </div>
+        <div v-if="outfitMode === 'list'" class="outfit-search">
+          <Search />
+          <input v-model.trim="outfitSearch" type="search" placeholder="搜索搭配名称和标签" aria-label="搜索搭配" />
         </div>
 
         <section v-if="outfitMode === 'suggest'" class="panel">
@@ -285,10 +287,6 @@
                     <strong>分类筛选</strong>
                     <button class="icon-action subtle" type="button" title="关闭" aria-label="关闭" @click="outfitDrawerOpen = false"><X /></button>
                   </div>
-                  <div class="outfit-search">
-                    <Search />
-                    <input v-model.trim="outfitSearch" type="search" placeholder="搜索搭配名称和标签" />
-                  </div>
                   <button
                     v-if="favoriteOutfits.length"
                     type="button"
@@ -330,13 +328,15 @@
                       <Heart :class="{ filled: catalogOutfit.favorite }" />
                     </button>
                     <div class="outfit-footer">
-                      <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
-                      <div class="outfit-tags">
-                        <span v-if="catalogOutfit.scene" class="soft-tag">{{ catalogOutfit.scene }}</span>
-                        <span class="soft-tag">{{ seasonText(catalogOutfit.seasons) }}</span>
-                        <span v-for="tag in catalogOutfit.styleTags" :key="tag" class="soft-tag">{{ tag }}</span>
+                      <div class="outfit-text-flow">
+                        <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
+                        <div class="outfit-tags">
+                          <span v-if="catalogOutfit.scene" class="soft-tag">{{ catalogOutfit.scene }}</span>
+                          <span class="soft-tag">{{ seasonText(catalogOutfit.seasons) }}</span>
+                          <span v-for="tag in catalogOutfit.styleTags" :key="tag" class="soft-tag">{{ tag }}</span>
+                        </div>
+                        <span class="wear-meta">上次 {{ formatDate(catalogOutfit.lastWornAt) }} · 已穿 {{ catalogOutfit.wearCount || 0 }} 次</span>
                       </div>
-                      <span class="wear-meta">上次 {{ formatDate(catalogOutfit.lastWornAt) }} · 穿过 {{ catalogOutfit.wearCount || 0 }} 次</span>
                       <button class="more-button" type="button" aria-label="更多操作" @click.stop="openOutfitMenu(catalogOutfit)"><MoreHorizontal /></button>
                     </div>
                   </article>
@@ -729,7 +729,7 @@
     <button v-if="activeTab === 'outfits' && outfitMode !== 'draft'" class="create-fab" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
     <div v-if="toastMessage" class="toast">{{ toastMessage }}</div>
     <div v-if="outfitBatchMode" class="batch-bar">
-      <button class="secondary-action" type="button" @click="openBatchTagSheet">批量打标签</button>
+      <button class="secondary-action" type="button" :disabled="!outfitSelectedIds.length" @click="openBatchTagSheet">批量打标签</button>
       <button class="danger-action" type="button" :disabled="!outfitSelectedIds.length" @click="confirmBatchDelete">批量删除</button>
     </div>
     <div v-if="outfitMenu" class="sheet-backdrop" @click="outfitMenu = null">
@@ -947,10 +947,12 @@ const canvasItems = computed(() => activeClothes.value.filter((item) => canvasCa
 const filteredOutfits = computed(() => outfits.value.filter((outfit) => {
   const keyword = outfitSearch.value.toLowerCase()
   const text = [outfit.name, ...(outfit.styleTags || [])].join(' ').toLowerCase()
-  if (!keyword && outfitListCategory.value === 'all') return true
-  if (outfitListCategory.value === 'favorites') return Boolean(outfit.favorite) && text.includes(keyword)
-  const categoryOk = outfit.itemIds.some((itemId) => clothesById.value[itemId]?.category === outfitListCategory.value)
-  return categoryOk && text.includes(keyword)
+  const searchOk = !keyword || text.includes(keyword)
+  const categoryOk = outfitListCategory.value === 'all'
+    || (outfitListCategory.value === 'favorites'
+      ? Boolean(outfit.favorite)
+      : outfit.itemIds.some((itemId) => clothesById.value[itemId]?.category === outfitListCategory.value))
+  return searchOk && categoryOk
 }))
 
 const sortedOutfits = computed(() => {
@@ -1085,6 +1087,7 @@ function openStagedPreview(item) {
 
 function toggleOutfitBatchMode() {
   outfitBatchMode.value = !outfitBatchMode.value
+  batchTagSheet.value = false
   outfitSelectedIds.value = []
 }
 
