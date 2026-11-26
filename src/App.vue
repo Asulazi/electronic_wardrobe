@@ -128,11 +128,13 @@
 
       <section v-if="activeTab === 'outfits'" class="view">
         <div v-if="outfitMode !== 'draft'" class="outfit-toolbar">
-          <button class="mobile-filter-toggle" type="button" aria-label="打开分类筛选" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
-          <div class="outfit-tabs" aria-label="搭配页视图">
-            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
-            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
-            <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
+          <div class="outfit-tab-group">
+            <button class="category-item mobile-filter-toggle" type="button" aria-label="打开分类筛选" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
+            <div class="outfit-tabs" aria-label="搭配页视图">
+              <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
+              <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
+              <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
+            </div>
           </div>
           <div class="outfit-tools">
             <select v-model="outfitSort" class="sort-select" aria-label="排序方式">
@@ -143,7 +145,7 @@
             <button class="tool-button" type="button" :class="{ active: outfitBatchMode }" :aria-pressed="outfitBatchMode" @click="toggleOutfitBatchMode">批量管理</button>
           </div>
         </div>
-        <div v-if="outfitMode === 'list'" class="outfit-search">
+        <div v-if="outfitMode === 'list'" class="outfit-global-search">
           <Search />
           <input v-model.trim="outfitSearch" type="search" placeholder="搜索搭配名称和标签" aria-label="搜索搭配" />
         </div>
@@ -280,7 +282,7 @@
             <p>从衣橱挑选单品，创建可复用的穿搭方案。</p>
             <button class="primary-action" type="button" @click="startOutfit">创建搭配</button>
           </section>
-          <section v-else class="outfit-list">
+          <section v-else-if="sortedOutfits.length" class="outfit-list">
         <div class="outfit-catalog">
                 <aside class="outfit-sidebar" :class="{ open: outfitDrawerOpen }">
                   <div class="drawer-head">
@@ -329,25 +331,29 @@
                     </button>
                     <div class="outfit-footer">
                       <div class="outfit-text-flow">
-                        <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
+                        <div class="outfit-name-line">
+                          <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
+                        </div>
                         <div class="outfit-tags">
                           <span v-if="catalogOutfit.scene" class="soft-tag">{{ catalogOutfit.scene }}</span>
                           <span class="soft-tag">{{ seasonText(catalogOutfit.seasons) }}</span>
                           <span v-for="tag in catalogOutfit.styleTags" :key="tag" class="soft-tag">{{ tag }}</span>
                         </div>
-                        <span class="wear-meta">上次 {{ formatDate(catalogOutfit.lastWornAt) }} · 已穿 {{ catalogOutfit.wearCount || 0 }} 次</span>
+                        <div class="outfit-meta-line">
+                          <span class="wear-meta">上次：{{ formatDate(catalogOutfit.lastWornAt) }} · 已穿 {{ catalogOutfit.wearCount || 0 }} 次</span>
+                        </div>
                       </div>
                       <button class="more-button" type="button" aria-label="更多操作" @click.stop="openOutfitMenu(catalogOutfit)"><MoreHorizontal /></button>
                     </div>
                   </article>
-                  <section v-if="!sortedOutfits.length" class="empty">
-                    <Layers />
-                    <h2>暂无搭配方案</h2>
-                    <p>当前分类还没有搭配，可以先创建一套。</p>
-                    <button class="primary-action" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
-                  </section>
                 </div>
               </div>
+          </section>
+          <section v-else class="empty outfit-empty">
+            <Layers />
+            <h2>暂无搭配方案</h2>
+            <p>当前分类还没有搭配，可以先创建一套。</p>
+            <button class="primary-action" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
           </section>
         </template>
       </section>
