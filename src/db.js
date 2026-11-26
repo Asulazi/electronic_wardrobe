@@ -97,3 +97,14 @@ db.version(6).stores({
     outfit.lastWornAt = outfit.lastWornAt || null
   })
 })
+
+db.version(7).stores({
+  clothes: '++id, name, category, favorite, archived, status, createdAt, updatedAt',
+  outfits: '++id, name, favorite, scene, createdAt, updatedAt',
+  wearLogs: '++id, date, itemId, outfitId',
+  settings: 'key'
+}).upgrade(async (tx) => {
+  await tx.outfits.toCollection().modify((outfit) => {
+    outfit.source = outfit.source || ''
+  })
+})

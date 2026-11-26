@@ -137,11 +137,12 @@
             </div>
           </div>
           <div class="outfit-tools">
-            <select v-model="outfitSort" class="sort-select icon-select" aria-label="排序方式" title="排序方式">
-              <option value="created">创建时间</option>
-              <option value="worn">最近穿着</option>
-              <option value="frequency">穿着频次</option>
-            </select>
+            <button class="sort-select icon-select" type="button" aria-label="排序方式" :aria-expanded="sortMenuOpen" @click="sortMenuOpen = !sortMenuOpen"><ChevronDown /></button>
+            <div v-if="sortMenuOpen" class="sort-menu">
+              <button type="button" :class="{ active: outfitSort === 'created' }" @click="selectSort('created')">创建时间</button>
+              <button type="button" :class="{ active: outfitSort === 'worn' }" @click="selectSort('worn')">最近穿着</button>
+              <button type="button" :class="{ active: outfitSort === 'frequency' }" @click="selectSort('frequency')">穿着频次</button>
+            </div>
             <button class="tool-button icon-toggle" type="button" :class="{ active: outfitBatchMode }" :aria-pressed="outfitBatchMode" :title="outfitBatchMode ? '退出批量管理' : '批量管理'" :aria-label="outfitBatchMode ? '退出批量管理' : '批量管理'" @click="toggleOutfitBatchMode"><ListChecks /></button>
           </div>
         </div>
@@ -269,7 +270,7 @@
           <p v-if="saveError" class="error-text">{{ saveError }}</p>
         </section>
 
-        <template v-else>
+        <template v-else-if="outfitMode === 'list'">
           <section v-if="!outfits.length && !clothes.length" class="empty">
             <Shirt />
             <h2>先从衣橱开始</h2>
@@ -282,8 +283,8 @@
             <p>从衣橱挑选单品，创建可复用的穿搭方案。</p>
             <button class="primary-action" type="button" @click="startOutfit">创建搭配</button>
           </section>
-          <section v-else-if="sortedOutfits.length" class="outfit-list">
-        <div class="outfit-catalog">
+          <section v-else class="outfit-list">
+        <div class="outfit-catalog" :class="{ 'has-empty': !sortedOutfits.length }">
                 <aside class="outfit-sidebar" :class="{ open: outfitDrawerOpen }">
                   <div class="drawer-head">
                     <strong>分类筛选</strong>
@@ -306,7 +307,7 @@
                   >{{ category.label }}</button>
                 </aside>
                 <div v-if="outfitDrawerOpen" class="drawer-mask" @click="outfitDrawerOpen = false"></div>
-                <div class="outfit-catalog-list">
+                <div class="outfit-catalog-list" v-if="sortedOutfits.length">
                   <article
                     v-for="catalogOutfit in sortedOutfits"
                     :key="catalogOutfit.id"
@@ -333,6 +334,7 @@
                       <div class="outfit-text-flow">
                         <div class="outfit-title-row">
                           <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
+                          <span v-if="catalogOutfit.source === 'ai'" class="soft-tag ai-tag">智</span>
                           <span v-if="catalogOutfit.scene" class="soft-tag">{{ catalogOutfit.scene }}</span>
                           <span class="soft-tag">{{ seasonText(catalogOutfit.seasons) }}</span>
                           <span v-for="tag in catalogOutfit.styleTags" :key="tag" class="soft-tag">{{ tag }}</span>
@@ -347,12 +349,12 @@
                 </div>
               </div>
           </section>
-          <section v-else class="empty outfit-empty">
+          <div v-if="outfits.length && !sortedOutfits.length" class="empty outfit-empty">
             <Layers />
             <h2>暂无搭配方案</h2>
             <p>当前分类还没有搭配，可以先创建一套。</p>
             <button class="primary-action" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
-          </section>
+          </div>
         </template>
       </section>
 
@@ -730,7 +732,7 @@
     <input ref="excelInput" class="hidden-input" type="file" accept=".xlsx,.xls,.csv" @change="handleExcelImport" />
 
     <button v-if="activeTab !== 'settings' && activeTab !== 'outfits' && outfitMode !== 'draft'" class="floating-add" type="button" @click="handleCenterAdd"><Plus /></button>
-    <button v-if="activeTab === 'outfits' && outfitMode !== 'draft'" class="create-fab" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
+    <button v-if="activeTab === 'outfits' && outfitMode !== 'draft'" class="create-fab" type="button" aria-label="创建搭配" title="创建搭配" @click="startOutfit"><Plus /></button>
     <div v-if="toastMessage" class="toast">{{ toastMessage }}</div>
     <div v-if="outfitBatchMode" class="batch-bar">
       <button class="secondary-action" type="button" :disabled="!outfitSelectedIds.length" @click="openBatchTagSheet">批量打标签</button>
@@ -798,7 +800,7 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import { watch } from 'vue'
 import { removeBackground } from '@imgly/background-removal'
 import {
-  Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart, List, MoreHorizontal,
+  Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Heart, List, MoreHorizontal,
   CalendarCheck,
   Check, ImagePlus, Layers, ListChecks, Maximize2, PenLine, Plus, RotateCw, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
@@ -837,6 +839,7 @@ const canvasCategory = ref('all')
 const outfitListCategory = ref('all')
 const outfitSearch = ref('')
 const outfitSort = ref('created')
+const sortMenuOpen = ref(false)
 const outfitBatchMode = ref(false)
 const outfitSelectedIds = ref([])
 const outfitMenu = ref(null)
@@ -1471,14 +1474,16 @@ async function confirmSaveOutfit() {
         x: layer.x, y: layer.y, width: layer.width, height: layer.height,
         rotation: layer.rotation, z: layer.z
       }])),
-      styleTags: [], note: '', favorite: false, wearCount: 0, createdAt: now, updatedAt: now
+      styleTags: [], note: '', favorite: false, wearCount: 0, createdAt: now, updatedAt: now,
+      source: draft.id ? '' : 'manual'
     }
     let saved
-    if (draft.id) {
-      const existing = await db.outfits.get(draft.id)
+  if (draft.id) {
+    const existing = await db.outfits.get(draft.id)
       await db.outfits.update(draft.id, {
         ...record,
         favorite: existing?.favorite || false,
+        source: existing?.source || '',
         wearCount: existing?.wearCount || 0,
         createdAt: existing?.createdAt || now
       })
@@ -1694,6 +1699,11 @@ function openSuggestions() {
   if (!suggestions.value.length) generateSuggestions()
 }
 
+function selectSort(value) {
+  outfitSort.value = value
+  sortMenuOpen.value = false
+}
+
 function generateSuggestions() {
   suggestions.value = suggestOutfits(clothes.value, {
     scene: suggestOptions.scene,
@@ -1714,6 +1724,7 @@ async function useSuggestion(suggestion) {
     weather: '',
     temperature: suggestOptions.temperature || '',
     styleTags: [],
+    source: 'ai',
     note: '',
     favorite: false,
     wearCount: 0,

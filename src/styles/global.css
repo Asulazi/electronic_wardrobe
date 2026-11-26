@@ -1051,6 +1051,7 @@ button { touch-action: manipulation; }
 }
 
 .outfit-tools {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -1064,7 +1065,9 @@ button { touch-action: manipulation; }
   width: 34px;
   min-height: 32px;
   height: 32px;
-  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface);
@@ -1092,11 +1095,49 @@ button { touch-action: manipulation; }
 }
 
 .icon-select {
-  padding-left: 9px;
-  padding-right: 6px;
-  background-position: right 5px center, right 1px center;
-  background-size: 6px 6px;
-  text-indent: -9999px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.icon-select svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sort-menu {
+  position: absolute;
+  z-index: 60;
+  top: 44px;
+  right: 0;
+  display: grid;
+  min-width: 118px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(31,24,16,.12);
+}
+
+.sort-menu button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+}
+
+.sort-menu button + button {
+  border-top: 1px solid var(--line);
+}
+
+.sort-menu button.active {
+  background: color-mix(in srgb, var(--action) 10%, #fff);
+  color: var(--action);
+  font-weight: 700;
 }
 
 .icon-toggle {
@@ -1115,6 +1156,10 @@ button { touch-action: manipulation; }
   gap: 11px;
   align-items: start;
   margin-top: 14px;
+}
+
+.outfit-catalog.has-empty {
+  grid-template-rows: minmax(58dvh, 1fr);
 }
 
 .outfit-sidebar {
@@ -1494,6 +1539,14 @@ button { touch-action: manipulation; }
   min-width: 0;
   max-width: 100%;
   white-space: nowrap;
+}
+
+.ai-tag {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--action) 35%, transparent);
+  background: color-mix(in srgb, var(--action) 10%, #fff);
+  color: var(--action);
+  font-weight: 700;
 }
 
 .soft-tag {
@@ -1894,13 +1947,14 @@ button { touch-action: manipulation; }
   right: max(18px, calc(50vw - 197px));
   bottom: calc(var(--safe-bottom) + 84px);
   z-index: 45;
-  display: inline-flex;
+  display: grid;
   align-items: center;
-  gap: 7px;
-  min-height: 46px;
-  padding: 0 16px;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--action);
   color: #fff;
   box-shadow: 0 10px 24px rgba(31,74,110,.18);
@@ -1908,7 +1962,7 @@ button { touch-action: manipulation; }
   font-weight: 700;
 }
 
-.create-fab svg { width: 18px; height: 18px; }
+.create-fab svg { width: 24px; height: 24px; }
 
 .batch-bar {
   position: fixed;
