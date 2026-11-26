@@ -179,7 +179,7 @@ test('DIY画布支持分类选衣、拖动缩放和布局保存', async ({ page 
   await page.locator('.detail-topbar').getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.locator('.sheet')).toHaveCount(0)
   await page.locator('.outfit-card').getByRole('button', { name: '更多操作' }).click()
-  await page.getByRole('button', { name: '编辑布局' }).click()
+  await page.getByRole('button', { name: '编辑搭配' }).click()
   await expect(page.locator('.diy-canvas')).toBeVisible()
   await expect(page.locator('.diy-meta')).toHaveCount(0)
   await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
@@ -263,6 +263,39 @@ test('搭配卡片固定比例并支持批量勾选', async ({ page }) => {
   await page.locator('.outfit-preview').click()
   await expect(page.locator('.outfit-card.selected')).toHaveCount(1)
   await expect(page.locator('.batch-bar')).toBeVisible()
+})
+
+test('搭配操作菜单标题与二次删除确认', async ({ page }) => {
+  await addGeneratedImages(page, ['#4a69bd'], ['top.png'])
+  await page.locator('.import-fields input').first().fill('黑上衣')
+  await page.locator('.import-fields select').first().selectOption('top')
+  await page.getByRole('button', { name: '入库 1 件' }).click()
+  await expect(page.locator('.product-card')).toHaveCount(1)
+
+  await page.getByRole('button', { name: '我的搭配' }).click()
+  await page.locator('.create-fab').click()
+  await page.locator('.diy-item').first().click()
+  await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
+  await page.getByPlaceholder('例如：通勤黑裤套装').fill('菜单搭配')
+  await page.locator('.sheet', { hasText: '搭配信息' }).getByRole('button', { name: '保存', exact: true }).click()
+  await page.locator('.detail-topbar').getByRole('button', { name: '返回', exact: true }).click()
+
+  await page.locator('.outfit-card').getByRole('button', { name: '更多操作' }).click()
+  await expect(page.locator('.action-sheet-header h2')).toHaveText('搭配操作')
+  await expect(page.locator('.sheet-subtitle')).toHaveText('菜单搭配')
+  await page.getByRole('button', { name: '编辑搭配' }).click()
+  await expect(page.locator('.diy-canvas')).toBeVisible()
+  await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
+  await page.locator('.sheet', { hasText: '搭配信息' }).getByRole('button', { name: '保存', exact: true }).click()
+  await page.locator('.detail-topbar').getByRole('button', { name: '返回', exact: true }).click()
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('衣橱单品不会被删除')
+    dialog.accept()
+  })
+  await page.locator('.outfit-card').getByRole('button', { name: '更多操作' }).click()
+  await page.getByRole('button', { name: '删除搭配' }).click()
+  await expect(page.locator('.outfit-card')).toHaveCount(0)
+  await expect(page.locator('.empty h2')).toHaveText('暂无搭配方案')
 })
 
 test('移动端导航、悬浮按钮和横向布局', async ({ page }) => {

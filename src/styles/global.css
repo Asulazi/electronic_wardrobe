@@ -972,7 +972,17 @@ button { touch-action: manipulation; }
   margin-bottom: 12px;
 }
 
-.mobile-tools-row { margin: 0 0 8px; }
+.outfit-page-head.list-tools {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.outfit-page-head.list-tools .outfit-tools {
+  justify-content: flex-end;
+}
+
+.outfit-page-head.tabs-head { margin-bottom: 10px; }
 
 .mobile-filter-toggle {
   display: inline-flex;
@@ -1190,6 +1200,8 @@ button { touch-action: manipulation; }
   grid-auto-columns: minmax(0, 1fr);
   width: 100%;
   height: 100%;
+  gap: 5px;
+  padding: 7px;
 }
 
 .outfit-image-cell {
@@ -1198,13 +1210,15 @@ button { touch-action: manipulation; }
   place-items: center;
   overflow: hidden;
   padding: 6px;
+  background: var(--surface-2);
+  border-radius: 8px;
 }
 
 .outfit-image-cell img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 7px;
+  border-radius: 8px;
 }
 
 .outfit-image-cell svg { width: 26px; height: 26px; color: var(--ink-3); }
@@ -1330,6 +1344,35 @@ button { touch-action: manipulation; }
   font-weight: 700;
 }
 
+.outfit-card.compact .more-button {
+  position: absolute;
+  right: 7px;
+  bottom: 6px;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 2px 7px rgba(31,24,16,.08);
+}
+
+.preview-badge {
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  left: 7px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #7a6448;
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 2px 7px rgba(31,24,16,.08);
+}
+
+.preview-badge.worn {
+  background: color-mix(in srgb, var(--action) 12%, #fff);
+  color: var(--action);
+}
+
 .outfit-tags {
   display: flex;
   overflow: hidden;
@@ -1439,6 +1482,21 @@ button { touch-action: manipulation; }
 .profile-card span { color: var(--ink-2); font-size: 12px; }
 .guide-text { margin: 0 0 14px; color: var(--ink-2); font-size: 14px; }
 .guide-text.empty-category { margin-top: 14px; text-align: left; }
+
+.action-sheet-header { align-items: flex-start; }
+
+.sheet-subtitle {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.empty .primary-action { gap: 7px; display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 170px; }
+.empty .primary-action svg { width: 17px; height: 17px; }
 .backup-message { margin: 10px 0 0; color: var(--ink-2); font-size: 13px; text-align: center; }
 
 .profile-stats {
@@ -1797,6 +1855,7 @@ button { touch-action: manipulation; }
   .phone { max-width: none; }
   .content { max-width: 1180px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
   .outfit-page-head { grid-template-columns: 1fr auto; align-items: center; }
+  .outfit-page-head.list-tools { grid-template-columns: auto minmax(0, 1fr); }
   .outfit-tabs { grid-column: auto; }
   .outfit-tools { grid-column: auto; }
   .mobile-filter-toggle { display: none; }

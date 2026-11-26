@@ -8,7 +8,7 @@
         </div>
         <p>{{ pageSubtitle }}</p>
       </div>
-      <button v-if="activeTab !== 'stats'" class="icon-action" type="button" :aria-label="primaryActionLabel" @click="handlePrimaryAction">
+      <button v-if="activeTab !== 'stats' && activeTab !== 'outfits'" class="icon-action" type="button" :aria-label="primaryActionLabel" @click="handlePrimaryAction">
         <component :is="primaryIcon" />
       </button>
     </header>
@@ -127,13 +127,9 @@
       </section>
 
       <section v-if="activeTab === 'outfits'" class="view">
-        <div v-if="outfitMode !== 'draft'" class="outfit-page-head">
-          <div class="outfit-tabs">
-            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
-            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
-            <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
-          </div>
-          <div v-if="outfitMode === 'list'" class="outfit-tools">
+        <div v-if="outfitMode === 'list'" class="outfit-page-head">
+          <button class="mobile-filter-toggle" type="button" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
+          <div class="outfit-tools">
             <select v-model="outfitSort" class="sort-select" aria-label="排序方式">
               <option value="created">创建时间</option>
               <option value="worn">最近穿着</option>
@@ -142,8 +138,12 @@
             <button class="tool-button" type="button" :class="{ active: outfitBatchMode }" @click="toggleOutfitBatchMode">批量管理</button>
           </div>
         </div>
-        <div v-if="outfitMode === 'list'" class="mobile-tools-row">
-          <button class="mobile-filter-toggle" type="button" @click="outfitDrawerOpen = true"><List /><span>分类</span></button>
+        <div v-if="outfitMode !== 'draft'" class="outfit-page-head">
+          <div class="outfit-tabs">
+            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'list' }" @click="outfitMode = 'list'">我的搭配</button>
+            <button type="button" class="outfit-tab" :class="{ active: outfitMode === 'suggest' }" @click="openSuggestions">智能推荐</button>
+            <button type="button" class="outfit-tab" @click="startOutfit">自由拼搭</button>
+          </div>
         </div>
 
         <section v-if="outfitMode === 'suggest'" class="panel">
@@ -274,7 +274,7 @@
           </section>
           <section v-else-if="!outfits.length" class="empty">
             <Layers />
-            <h2>还没有搭配</h2>
+            <h2>暂无搭配方案</h2>
             <p>从衣橱挑选单品，创建可复用的穿搭方案。</p>
             <button class="primary-action" type="button" @click="startOutfit">创建搭配</button>
           </section>
@@ -323,6 +323,8 @@
                           <Shirt v-else />
                         </span>
                       </span>
+                      <span v-if="catalogOutfit.scheduledAt" class="preview-badge">已安排</span>
+                      <span v-else-if="(catalogOutfit.wearCount || 0) >= 3" class="preview-badge worn">常穿</span>
                     </button>
                     <button class="favorite-float" type="button" :aria-label="catalogOutfit.favorite ? '取消收藏' : '收藏搭配'" @click.stop="toggleOutfitFavorite(catalogOutfit)">
                       <Heart :class="{ filled: catalogOutfit.favorite }" />
@@ -332,13 +334,18 @@
                       <div class="outfit-tags">
                         <span v-if="catalogOutfit.scene" class="soft-tag">{{ catalogOutfit.scene }}</span>
                         <span class="soft-tag">{{ seasonText(catalogOutfit.seasons) }}</span>
-                        <span v-if="catalogOutfit.scheduledAt" class="soft-tag accent">本周安排</span>
+                        <span v-for="tag in catalogOutfit.styleTags" :key="tag" class="soft-tag">{{ tag }}</span>
                       </div>
                       <span class="wear-meta">上次 {{ formatDate(catalogOutfit.lastWornAt) }} · 穿过 {{ catalogOutfit.wearCount || 0 }} 次</span>
                       <button class="more-button" type="button" aria-label="更多操作" @click.stop="openOutfitMenu(catalogOutfit)"><MoreHorizontal /></button>
                     </div>
                   </article>
-                  <p v-if="!sortedOutfits.length" class="guide-text empty-category">这个分类还没有搭配。</p>
+                  <section v-if="!sortedOutfits.length" class="empty">
+                    <Layers />
+                    <h2>暂无搭配方案</h2>
+                    <p>当前分类还没有搭配，可以先创建一套。</p>
+                    <button class="primary-action" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
+                  </section>
                 </div>
               </div>
           </section>
@@ -727,9 +734,15 @@
     </div>
     <div v-if="outfitMenu" class="sheet-backdrop" @click="outfitMenu = null">
       <section class="sheet action-sheet" @click.stop>
-        <header class="sheet-header"><div><span class="kicker">搭配操作</span><h2>{{ outfitMenu.name }}</h2></div><button class="icon-action subtle" type="button" title="关闭" aria-label="关闭" @click="outfitMenu = null"><X /></button></header>
+        <header class="sheet-header action-sheet-header">
+          <div>
+            <h2>搭配操作</h2>
+            <span class="sheet-subtitle">{{ outfitMenu.name }}</span>
+          </div>
+          <button class="icon-action subtle" type="button" title="关闭" aria-label="关闭" @click="outfitMenu = null"><X /></button>
+        </header>
         <div class="menu-list">
-          <button type="button" @click="editOutfitLayout(outfitMenu); outfitMenu = null"><PenLine /><span>编辑布局</span></button>
+          <button type="button" @click="editOutfitLayout(outfitMenu); outfitMenu = null"><PenLine /><span>编辑搭配</span></button>
           <button type="button" @click="duplicateOutfit(outfitMenu); outfitMenu = null"><Copy /><span>复制搭配</span></button>
           <button type="button" @click="scheduleOutfit(outfitMenu)"><CalendarDays /><span>安排到穿搭日历</span></button>
           <button type="button" class="danger" @click="confirmOutfitDelete(outfitMenu)"><Trash2 /><span>删除搭配</span></button>
@@ -1129,7 +1142,7 @@ async function saveBatchTags() {
 function confirmBatchDelete() {
   const count = outfitSelectedIds.value.length
   if (!count) return
-  if (!confirm(`删除 ${count} 套搭配？衣橱单品会保留。`)) return
+  if (!confirm(`删除 ${count} 套搭配？仅删除搭配方案，衣橱单品不会被删除。`)) return
   db.outfits.bulkDelete(outfitSelectedIds.value)
   outfitBatchMode.value = false
   outfitSelectedIds.value = []
@@ -1138,7 +1151,7 @@ function confirmBatchDelete() {
 }
 
 function confirmOutfitDelete(outfit) {
-  if (!confirm(`删除「${outfit.name}」？仅删除搭配方案，衣橱单品保留。`)) return
+  if (!confirm(`删除「${outfit.name}」？仅删除搭配方案，衣橱单品不会被删除。`)) return
   db.outfits.delete(outfit.id)
   outfitMenu.value = null
   closeOutfitDetail()
@@ -1795,8 +1808,10 @@ async function saveOutfitDetail() {
 }
 
 async function toggleOutfitFavorite(outfit) {
-  await db.outfits.update(outfit.id, { favorite: !outfit.favorite, updatedAt: Date.now() })
+  const nextFavorite = !outfit.favorite
+  await db.outfits.update(outfit.id, { favorite: nextFavorite, updatedAt: Date.now() })
   await refresh()
+  showToast(nextFavorite ? '已收藏搭配' : '已取消收藏')
 }
 
 async function recordOutfitWear(outfit) {
