@@ -84,3 +84,16 @@ db.version(5).stores({
     outfit.background = outfit.background || '#ffffff'
   })
 })
+
+db.version(6).stores({
+  clothes: '++id, name, category, favorite, archived, status, createdAt, updatedAt',
+  outfits: '++id, name, favorite, scene, createdAt, updatedAt',
+  wearLogs: '++id, date, itemId, outfitId',
+  settings: 'key'
+}).upgrade(async (tx) => {
+  await tx.outfits.toCollection().modify((outfit) => {
+    outfit.styleTags = outfit.styleTags || []
+    outfit.scheduledAt = outfit.scheduledAt || null
+    outfit.lastWornAt = outfit.lastWornAt || null
+  })
+})

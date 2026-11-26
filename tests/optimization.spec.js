@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+﻿import { test, expect } from '@playwright/test'
 
 async function addGeneratedImages(page, colors, names, selector = 'input[type="file"]') {
   await page.evaluate(async ({ colors, names, selector }) => {
@@ -108,8 +108,8 @@ test('搭配详情使用中文季节并生成成套标注海报', async ({ page 
   await page.getByRole('button', { name: '入库 2 件' }).click()
   await expect(page.locator('.product-card')).toHaveCount(2)
 
-  await page.getByRole('button', { name: '搭配册' }).click()
-  await page.getByRole('button', { name: '创建搭配' }).click()
+  await page.getByRole('button', { name: '我的搭配' }).click()
+  await page.locator('.create-fab').click()
   await page.locator('.diy-item').nth(0).click()
   await page.locator('.diy-item').nth(1).click()
   await page.locator('.diy-settings-toggle').click()
@@ -131,7 +131,7 @@ test('搭配详情使用中文季节并生成成套标注海报', async ({ page 
   await page.locator('.calendar-cell', { hasText: '27' }).click()
   await expect(page.locator('.date-log-item img')).toBeVisible()
   await page.locator('.sheet-header').getByRole('button').click()
-  await page.getByRole('button', { name: '搭配册' }).click()
+  await page.getByRole('button', { name: '我的搭配' }).click()
   await page.locator('.outfit-preview').first().click()
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出图' }).click()
@@ -149,8 +149,8 @@ test('DIY画布支持分类选衣、拖动缩放和布局保存', async ({ page 
   await page.getByRole('button', { name: '入库 2 件' }).click()
   await expect(page.locator('.product-card')).toHaveCount(2)
 
-  await page.getByRole('button', { name: '搭配册' }).click()
-  await page.getByRole('button', { name: 'DIY 拼搭' }).click()
+  await page.getByRole('button', { name: '我的搭配' }).click()
+  await page.getByRole('button', { name: '自由拼搭' }).click()
   await expect(page.locator('.diy-canvas')).toBeVisible()
   await page.locator('.diy-tabs button', { hasText: '全部' }).click()
   await page.locator('.diy-item').nth(0).click()
@@ -172,13 +172,14 @@ test('DIY画布支持分类选衣、拖动缩放和布局保存', async ({ page 
   await page.locator('.sheet', { hasText: '搭配信息' }).getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.locator('.result-image')).toBeVisible()
   await page.locator('.detail-topbar').getByRole('button', { name: '返回' }).click()
-  await expect(page.locator('.outfit-card.compact .outfit-footer strong').first()).toHaveText('画布搭配')
+  await expect(page.locator('.outfit-card.compact .outfit-name-button').first()).toHaveText('画布搭配')
   await page.locator('.outfit-preview').first().click()
   await expect(page.locator('.outfit-detail-preview .outfit-layout-preview')).toBeVisible()
   await expect(page.locator('.sheet')).toHaveCount(1)
   await page.locator('.detail-topbar').getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.locator('.sheet')).toHaveCount(0)
-  await page.locator('.preview-actions').getByRole('button', { name: '编辑布局' }).click()
+  await page.locator('.outfit-card-tools').getByRole('button', { name: '更多操作' }).click()
+  await page.getByRole('button', { name: '编辑布局' }).click()
   await expect(page.locator('.diy-canvas')).toBeVisible()
   await expect(page.locator('.diy-meta')).toHaveCount(0)
   await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
@@ -202,8 +203,8 @@ test('弹层不模糊锁滚动，搭配收藏可筛选', async ({ page }) => {
   await page.locator('.detail-topbar').getByRole('button', { name: '取消', exact: true }).click()
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('')
 
-  await page.getByRole('button', { name: '搭配册' }).click()
-  await page.getByRole('button', { name: 'DIY 拼搭' }).click()
+  await page.getByRole('button', { name: '我的搭配' }).click()
+  await page.getByRole('button', { name: '自由拼搭' }).click()
   await page.locator('.diy-item').nth(0).click()
   await page.locator('.diy-item').nth(1).click()
   await page.locator('.diy-settings-toggle').click()
@@ -211,10 +212,11 @@ test('弹层不模糊锁滚动，搭配收藏可筛选', async ({ page }) => {
   await page.locator('.diy-toolbar').getByRole('button', { name: '保存', exact: true }).click()
   await page.locator('.sheet', { hasText: '搭配信息' }).getByRole('button', { name: '保存', exact: true }).click()
   await page.locator('.detail-topbar').getByRole('button', { name: '返回', exact: true }).click()
-  await page.locator('.preview-actions').getByRole('button', { name: '收藏搭配' }).click()
+  await page.locator('.outfit-card-tools').getByRole('button', { name: /收藏搭配|取消收藏/ }).click()
   await expect(page.locator('.outfit-sidebar .favorite-filter')).toBeVisible()
+  await page.locator('.mobile-filter-toggle').click()
   await page.locator('.outfit-sidebar .favorite-filter').click()
-  await expect(page.locator('.outfit-card.compact .outfit-footer strong')).toHaveText('收藏套装')
+  await expect(page.locator('.outfit-card.compact .outfit-name-button')).toHaveText('收藏套装')
 })
 
 test('待入库大图预览支持长按保存', async ({ page }) => {
@@ -246,3 +248,6 @@ test('移动端导航、悬浮按钮和横向布局', async ({ page }) => {
   await page.getByRole('button', { name: '取消' }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(430)
 })
+
+
+
