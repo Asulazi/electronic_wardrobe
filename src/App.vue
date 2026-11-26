@@ -137,12 +137,12 @@
             </div>
           </div>
           <div class="outfit-tools">
-            <select v-model="outfitSort" class="sort-select" aria-label="排序方式">
+            <select v-model="outfitSort" class="sort-select icon-select" aria-label="排序方式" title="排序方式">
               <option value="created">创建时间</option>
               <option value="worn">最近穿着</option>
               <option value="frequency">穿着频次</option>
             </select>
-            <button class="tool-button" type="button" :class="{ active: outfitBatchMode }" :aria-pressed="outfitBatchMode" @click="toggleOutfitBatchMode">批量管理</button>
+            <button class="tool-button icon-toggle" type="button" :class="{ active: outfitBatchMode }" :aria-pressed="outfitBatchMode" :title="outfitBatchMode ? '退出批量管理' : '批量管理'" :aria-label="outfitBatchMode ? '退出批量管理' : '批量管理'" @click="toggleOutfitBatchMode"><ListChecks /></button>
           </div>
         </div>
         <div v-if="outfitMode === 'list'" class="outfit-global-search">
@@ -331,16 +331,14 @@
                     </button>
                     <div class="outfit-footer">
                       <div class="outfit-text-flow">
-                        <div class="outfit-name-line">
+                        <div class="outfit-title-row">
                           <button class="outfit-name-button" type="button" @click="renameOutfit(catalogOutfit)">{{ catalogOutfit.name }}</button>
-                        </div>
-                        <div class="outfit-tags">
                           <span v-if="catalogOutfit.scene" class="soft-tag">{{ catalogOutfit.scene }}</span>
                           <span class="soft-tag">{{ seasonText(catalogOutfit.seasons) }}</span>
                           <span v-for="tag in catalogOutfit.styleTags" :key="tag" class="soft-tag">{{ tag }}</span>
                         </div>
                         <div class="outfit-meta-line">
-                          <span class="wear-meta">上次：{{ formatDate(catalogOutfit.lastWornAt) }} · 已穿 {{ catalogOutfit.wearCount || 0 }} 次</span>
+                          <span class="wear-meta">上次：{{ catalogOutfit.lastWornAt ? formatDate(catalogOutfit.lastWornAt) : '无' }} · 已穿 {{ catalogOutfit.wearCount || 0 }} 次</span>
                         </div>
                       </div>
                       <button class="more-button" type="button" aria-label="更多操作" @click.stop="openOutfitMenu(catalogOutfit)"><MoreHorizontal /></button>
@@ -802,7 +800,7 @@ import { removeBackground } from '@imgly/background-removal'
 import {
   Archive, ArrowDownUp, CalendarDays, ChartColumn, ChevronLeft, ChevronRight, Copy, Download, Heart, List, MoreHorizontal,
   CalendarCheck,
-  Check, ImagePlus, Layers, Maximize2, PenLine, Plus, RotateCw, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
+  Check, ImagePlus, Layers, ListChecks, Maximize2, PenLine, Plus, RotateCw, ScanLine, Search, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, X
 } from 'lucide-vue-next'
 import WearCalendar from './components/WearCalendar.vue'
 import WearStats from './components/WearStats.vue'

@@ -1014,13 +1014,13 @@ button { touch-action: manipulation; }
   display: flex;
   flex: 1 1 auto;
   min-width: 0;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }
 
 .outfit-tab {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   height: 34px;
   min-height: 34px;
@@ -1030,7 +1030,7 @@ button { touch-action: manipulation; }
   border: 0;
   background: transparent;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -1051,10 +1051,6 @@ button { touch-action: manipulation; }
 }
 
 .outfit-tools {
-  height: 34px;
-}
-
-.outfit-tools {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -1064,8 +1060,8 @@ button { touch-action: manipulation; }
 }
 
 .sort-select {
-  min-width: 108px;
-  width: 72px;
+  min-width: 34px;
+  width: 34px;
   min-height: 32px;
   height: 32px;
   padding: 0 5px;
@@ -1079,7 +1075,8 @@ button { touch-action: manipulation; }
 .tool-button {
   min-height: 32px;
   height: 32px;
-  padding: 0 9px;
+  width: 34px;
+  padding: 0;
   white-space: nowrap;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -1092,6 +1089,24 @@ button { touch-action: manipulation; }
   border-color: color-mix(in srgb, var(--action) 38%, transparent);
   background: color-mix(in srgb, var(--action) 10%, #fff);
   color: var(--action);
+}
+
+.icon-select {
+  padding-left: 9px;
+  padding-right: 6px;
+  background-position: right 5px center, right 1px center;
+  background-size: 6px 6px;
+  text-indent: -9999px;
+}
+
+.icon-toggle {
+  display: grid;
+  place-items: center;
+}
+
+.icon-toggle svg {
+  width: 17px;
+  height: 17px;
 }
 
 .outfit-catalog {
@@ -1304,21 +1319,34 @@ button { touch-action: manipulation; }
 
 .outfit-text-flow {
   display: grid;
-  grid-template-rows: minmax(0, auto) minmax(0, auto) minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto) minmax(0, auto);
   align-content: start;
   gap: 3px;
   min-width: 0;
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
-  padding-right: 31px;
+  padding-right: 0;
 }
 
-.outfit-name-line,
+.outfit-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.outfit-meta-line,
 .outfit-meta-line {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+.outfit-meta-line {
+  align-self: end;
 }
 .outfit-card.compact .outfit-footer strong {
   overflow: hidden;
@@ -1406,7 +1434,9 @@ button { touch-action: manipulation; }
 .outfit-name-button {
   overflow: hidden;
   display: block;
-  width: 100%;
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 42%;
   min-height: 20px;
   padding: 0;
   border: 0;
@@ -1428,6 +1458,13 @@ button { touch-action: manipulation; }
   height: 28px;
   background: rgba(255,255,255,.94);
   box-shadow: 0 2px 7px rgba(31,24,16,.08);
+}
+
+.outfit-title-row .soft-tag {
+  flex: 0 1 auto;
+  height: 16px;
+  padding: 0 5px;
+  line-height: 16px;
 }
 
 .preview-badge {
