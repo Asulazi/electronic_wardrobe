@@ -283,8 +283,8 @@
             <p>从衣橱挑选单品，创建可复用的穿搭方案。</p>
             <button class="primary-action" type="button" @click="startOutfit">创建搭配</button>
           </section>
-          <section v-else class="outfit-list">
-        <div class="outfit-catalog" :class="{ 'has-empty': !sortedOutfits.length }">
+          <section v-else class="outfit-list" :class="{ 'is-empty': !sortedOutfits.length }">
+        <div class="outfit-catalog" :class="{ 'is-empty': !sortedOutfits.length }">
                 <aside class="outfit-sidebar" :class="{ open: outfitDrawerOpen }">
                   <div class="drawer-head">
                     <strong>分类筛选</strong>
@@ -348,13 +348,13 @@
                   </article>
                 </div>
               </div>
+              <div v-if="!sortedOutfits.length" class="empty outfit-empty">
+                <Layers />
+                <h2>暂无搭配方案</h2>
+                <p>当前分类还没有搭配，可以先创建一套。</p>
+                <button class="primary-action" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
+              </div>
           </section>
-          <div v-if="outfits.length && !sortedOutfits.length" class="empty outfit-empty">
-            <Layers />
-            <h2>暂无搭配方案</h2>
-            <p>当前分类还没有搭配，可以先创建一套。</p>
-            <button class="primary-action" type="button" @click="startOutfit"><Plus /><span>创建搭配</span></button>
-          </div>
         </template>
       </section>
 

@@ -755,6 +755,14 @@ button { touch-action: manipulation; }
 
 .outfit-list { display: grid; gap: 12px; }
 
+.outfit-list.is-empty {
+  position: relative;
+  display: grid;
+  min-height: min(52dvh, 560px);
+  margin-top: 0;
+  padding-top: 34px;
+}
+
 .diy-view {
   display: grid;
   gap: 10px;
@@ -1158,9 +1166,7 @@ button { touch-action: manipulation; }
   margin-top: 14px;
 }
 
-.outfit-catalog.has-empty {
-  grid-template-rows: minmax(58dvh, 1fr);
-}
+.outfit-catalog.is-empty { min-height: 0; margin-top: 0; }
 
 .outfit-sidebar {
   position: fixed;
@@ -1274,8 +1280,11 @@ button { touch-action: manipulation; }
 }
 
 .outfit-empty {
-  grid-column: 1 / -1;
-  min-height: min(58dvh, 620px);
+  position: relative;
+  grid-area: 1 / 1;
+  min-height: min(47dvh, 540px);
+  height: 100%;
+  max-height: min(47dvh, 540px);
   margin-top: 0;
 }
 
