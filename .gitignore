@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dev-dist/
+dev-server*.log
+test-results/
+playwright-report/
+.DS_Store
+*.local
+npm-debug.log*
